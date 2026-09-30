@@ -3,8 +3,9 @@
     python tools/guard_eval.py
 
 Takes correct English->Hindi/Spanish translation pairs, corrupts each in several
-ways (changed digit, dropped number, changed number word, lost name), and reports
-how many corruptions the guard catches, plus false alarms on the untouched pairs.
+ways (changed digit, dropped number, changed number word, changed day or month,
+changed time of day, lost name), and reports how many corruptions the guard
+catches, plus false alarms on the untouched pairs.
 Every number here is computed; nothing is estimated.
 """
 
@@ -35,6 +36,10 @@ PAIRS = [
     ("en", "Give the child 10 drops, three times a day.", "hi", "बच्चे को दिन में तीन बार 10 बूंदें दें।", []),
     ("en", "Your blood pressure is 140 over 90.", "hi", "आपका रक्तचाप 140 बटा 90 है।", []),
     ("en", "Room 204 is on the second floor.", "es", "La habitación 204 está en el segundo piso.", []),
+    ("en", "Your next dose is on Wednesday morning.", "hi", "आपकी अगली खुराक बुधवार सुबह है।", []),
+    ("en", "Take the tablet at night, not in the morning.", "hi", "गोली रात को लें, सुबह नहीं।", []),
+    ("en", "The clinic is closed on Sunday and opens again in March.", "es", "La clínica está cerrada el domingo y vuelve a abrir en marzo.", []),
+    ("en", "Your appointment is on Friday, 2 October, at 10 in the morning.", "hi", "आपकी अपॉइंटमेंट शुक्रवार, 2 अक्टूबर को सुबह 10 बजे है।", []),
 ]
 
 DIGITS = re.compile(r"\d+(?:[.,:]\d+)*")
@@ -47,7 +52,11 @@ def change_digit(text: str, rng: random.Random) -> str | None:
     m = rng.choice(found)
     s = m.group(0)
     choices = [s + "0", s[:-1] if len(s) > 1 else None, s[:-1] + str((int(s[-1]) + rng.randint(1, 8)) % 10)]
-    new = rng.choice([c for c in choices if c and c != s])
+    # Only real changes: "2,5" -> "2,50" is the same number, so it is not a corruption.
+    real = [c for c in choices if c and guard.normalise_number(c) != guard.normalise_number(s)]
+    if not real:
+        return None
+    new = rng.choice(real)
     return text[:m.start()] + new + text[m.end():]
 
 
@@ -70,6 +79,23 @@ def change_word(text: str, rng: random.Random) -> str | None:
     return re.sub(rf"(?<!\S){w}(?!\S)", WORD_SWAPS[w], text, count=1)
 
 
+def _swap_from(table: dict[str, str], text: str, rng: random.Random) -> str | None:
+    found = [w for w in table if re.search(rf"(?<!\S){re.escape(w)}(?=[\s,.।]|$)", text)]
+    if not found:
+        return None
+    w = rng.choice(found)
+    others = [x for x, canon in table.items() if canon != table[w]]
+    return re.sub(rf"(?<!\S){re.escape(w)}(?=[\s,.।]|$)", rng.choice(others), text, count=1)
+
+
+def change_date(text: str, lang: str, rng: random.Random) -> str | None:
+    return _swap_from(guard.DATE_WORDS.get(lang, {}), text, rng)
+
+
+def change_time(text: str, lang: str, rng: random.Random) -> str | None:
+    return _swap_from(guard.TIME_WORDS.get(lang, {}), text, rng)
+
+
 def lose_name(text: str, names, rng: random.Random) -> str | None:
     if not names:
         return None
@@ -79,7 +105,8 @@ def lose_name(text: str, names, rng: random.Random) -> str | None:
 
 def main() -> None:
     rng = random.Random(7)
-    results = {"changed digit": [0, 0], "dropped number": [0, 0], "changed number word": [0, 0], "lost name": [0, 0]}
+    results = {"changed digit": [0, 0], "dropped number": [0, 0], "changed number word": [0, 0],
+               "changed day or month": [0, 0], "changed time of day": [0, 0], "lost name": [0, 0]}
     false_alarms = 0
     for src_lang, src, tgt_lang, tgt, names in PAIRS:
         if guard.check(src, src_lang, tgt, tgt_lang, names).status in ("hold", "confirm"):
@@ -87,6 +114,12 @@ def main() -> None:
         for _ in range(8):
             for label, fn in (("changed digit", change_digit), ("dropped number", drop_number), ("changed number word", change_word)):
                 bad = fn(tgt, rng)
+                if bad and bad != tgt:
+                    results[label][1] += 1
+                    if guard.check(src, src_lang, bad, tgt_lang, names).status in ("hold", "confirm"):
+                        results[label][0] += 1
+            for label, fn in (("changed day or month", change_date), ("changed time of day", change_time)):
+                bad = fn(tgt, tgt_lang, rng)
                 if bad and bad != tgt:
                     results[label][1] += 1
                     if guard.check(src, src_lang, bad, tgt_lang, names).status in ("hold", "confirm"):
@@ -102,7 +135,8 @@ def main() -> None:
     print("| Corruption | Caught | Cases | Rate |")
     print("| --- | ---: | ---: | ---: |")
     for label, (c, t) in results.items():
-        print(f"| {label} | {c} | {t} | {100 * c / t:.1f}% |")
+        if t:
+            print(f"| {label} | {c} | {t} | {100 * c / t:.1f}% |")
     print(f"| **All** | **{caught}** | **{total}** | **{100 * caught / total:.1f}%** |")
     print(f"\nFalse alarms on {len(PAIRS)} correct translations: {false_alarms}")
 

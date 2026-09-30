@@ -1,7 +1,7 @@
 """Samvaad's local server: the web interface, the live audio pipeline, Recall and Beacon.
 
 Everything binds to 127.0.0.1 by default: nothing leaves the laptop. Start it with
-``python -m samvaad`` (or ``run.ps1``) and open http://127.0.0.1:8765.
+``python -m samvaad`` (or ``run.ps1`` / ``run.sh``) and open http://127.0.0.1:8765.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ from starlette.routing import Mount, Route, WebSocketRoute
 from starlette.staticfiles import StaticFiles
 from starlette.websockets import WebSocket, WebSocketDisconnect
 
-from . import __version__, guard
+from . import __version__, guard, platform_info
 from .audio import SAMPLE_RATE, AlarmDetector, Endpointer, EndpointerConfig, common_prefix_words, int16_to_float
 from .beacon import BeaconHub, name_heard
 from .engines import create_asr, looks_like_hallucination
@@ -61,8 +61,12 @@ class Engines:
         if time.time() - self._llm_checked > 5:
             self._llm_checked = time.time()
             await self.llm.health()
-        return {"label": self.llm.label, "model": self.llm.model, "base_url": self.llm.base_url,
-                "reachable": self.llm.reachable, "error": self.llm.last_error}
+        llm = self.llm
+        ollama_model = (self.cfg["llm"].get("ollama") or {}).get("model", "qwen3:4b-instruct-2507-q4_K_M")
+        return {"label": llm.label, "model": llm.model, "base_url": llm.base_url,
+                "provider": getattr(llm, "provider", ""), "device": getattr(llm, "device", ""),
+                "reachable": llm.reachable, "error": llm.last_error,
+                "hint": "" if llm.reachable else platform_info.translator_hint(ollama_model)}
 
     async def transcribe(self, audio: np.ndarray, **kwargs):
         async with self.asr_lock:
@@ -135,8 +139,10 @@ def create_app(cfg: dict) -> Starlette:
         asr = engines.asr
         return JSONResponse({
             "version": __version__,
+            "platform": platform_info.describe(),
             "asr": {"name": getattr(asr, "name", cfg["asr"]["engine"]), "device": getattr(asr, "device", ""),
-                    "ready": asr is not None, "loading": engines.asr_loading, "error": engines.asr_error},
+                    "ready": asr is not None, "loading": engines.asr_loading, "error": engines.asr_error,
+                    "setup": platform_info.setup_command(), "run": platform_info.run_command()},
             "llm": await engines.llm_status(),
             "beacon": {"connected": hub.connected, "name": settings["beacon_name"], "recent": hub.recent()},
             "settings": settings,

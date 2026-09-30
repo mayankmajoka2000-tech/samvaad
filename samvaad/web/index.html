@@ -12,6 +12,7 @@
     <div class="brand">
       <h1>Samvaad</h1>
       <span class="deva" lang="hi">संवाद</span>
+      <span class="platform" id="platform"></span>
     </div>
     <div class="chips" aria-live="polite">
       <span class="chip-status" id="chip-asr">Speech: <b>starting…</b></span>
@@ -24,8 +25,8 @@
     <span class="pipe-label">Pipeline</span>
     <ol class="stages">
       <li class="stage" data-stage="capture">Capture <small>CPU</small></li>
-      <li class="stage npu" data-stage="recognise">Recognise <small id="asr-dev">NPU</small></li>
-      <li class="stage npu" data-stage="translate">Translate <small>NPU</small></li>
+      <li class="stage" data-stage="recognise" id="stage-asr">Recognise <small id="asr-dev">…</small></li>
+      <li class="stage" data-stage="translate" id="stage-llm">Translate <small id="llm-dev">…</small></li>
       <li class="stage" data-stage="guard">Guard <small>CPU</small></li>
       <li class="stage" data-stage="speak">Speak <small>CPU</small></li>
     </ol>
@@ -136,7 +137,7 @@
             <div class="row">
               <a class="btn small" href="/api/session/export?fmt=md" download>Export notes (.md)</a>
               <a class="btn small" href="/api/session/export?fmt=json" download>Export data (.json)</a>
-              <button class="btn small" id="save" type="button">Save to this PC</button>
+              <button class="btn small" id="save" type="button">Save to this laptop</button>
             </div>
             <p class="note" id="save-note"></p>
           </div>
@@ -182,7 +183,7 @@
   </div>
 
   <footer class="foot">
-    <span>Samvaad runs on this PC. Audio is never saved or sent anywhere.</span>
+    <span>Samvaad runs on this laptop. Audio is never saved or sent anywhere.</span>
     <span class="mono" id="version"></span>
   </footer>
 </div>

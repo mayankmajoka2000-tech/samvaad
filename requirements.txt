@@ -1,12 +1,9 @@
-# Samvaad on a Snapdragon PC (Windows 11 on Arm, native ARM64 Python 3.12).
-# Speech on the NPU: the same pins as Qualcomm's Whisper Windows sample.
-onnxruntime==1.24.4
-onnxruntime-qnn==2.3.0
-numpy==2.4.6
-transformers==4.56.2
-qai-hub-apps>=0.34
+# Samvaad on any laptop: Windows (Intel/AMD), macOS (Apple Silicon/Intel), Linux. Python 3.11-3.13.
+# On a Snapdragon PC, setup.ps1 installs requirements-snapdragon.txt instead (Whisper on the NPU).
+numpy>=1.26
+faster-whisper>=1.1,<2        # Whisper on the CPU (int8) or an NVIDIA GPU; no PyTorch needed
 
-# The local server and the language-model client (pure Python).
+# The local server and the translator client (pure Python).
 starlette>=0.40
 uvicorn>=0.30
 wsproto>=1.2

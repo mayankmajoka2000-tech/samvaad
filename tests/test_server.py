@@ -33,6 +33,8 @@ def pcm(audio):
 def test_status_and_page(client):
     s = client.get("/api/status").json()
     assert s["asr"]["ready"] and s["asr"]["device"] == "mock"
+    assert s["platform"]["os"] and s["platform"]["chip"]
+    assert s["llm"]["reachable"] and s["llm"]["provider"] == "mock"
     assert "hi" in s["languages"]
     assert "Samvaad" in client.get("/").text
 

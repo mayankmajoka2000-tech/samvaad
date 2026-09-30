@@ -87,29 +87,35 @@
     let s;
     try { s = await api("/api/status"); } catch (e) {
       setChip("#chip-asr", "bad", "Speech", "server stopped");
-      showBanner("Samvaad's server is not running. Start it again with <code>run.ps1</code>.", true);
+      showBanner("Samvaad's server is not running. Start it again with <code>run.ps1</code> (Windows) or <code>bash run.sh</code> (Mac, Linux).", true);
       return;
     }
     state.langs = s.languages;
     $("#version").textContent = "v" + s.version;
     const problems = [];
+    if (s.platform) {
+      $("#platform").textContent = `on ${s.platform.chip} · ${s.platform.os}`;
+    }
     if (s.asr.ready) {
       setChip("#chip-asr", "ok", "Speech", `${s.asr.name} · ${s.asr.device}`);
       $("#asr-dev").textContent = s.asr.device;
+      $("#stage-asr").classList.toggle("npu", s.asr.device === "NPU");
     } else if (s.asr.loading) {
       setChip("#chip-asr", "warn", "Speech", "loading model…");
     } else {
       setChip("#chip-asr", "bad", "Speech", "not loaded");
-      const missing = /NO_SUCHFILE|No such file|not exist|FileNotFound|Load model/i.test(s.asr.error);
+      const missing = /NO_SUCHFILE|No such file|not exist|FileNotFound|Load model|No speech engine is installed|ModuleNotFound/i.test(s.asr.error);
       problems.push(missing
-        ? "The Whisper model files are missing. Run <code>.\\setup.ps1</code> once (see README, step 3)."
+        ? `The speech model is not installed yet. Run ${s.asr.setup || "the setup script"} once (see README).`
         : "The speech model did not load: <code>" + escapeHtml(s.asr.error) + "</code>. See README &gt; Troubleshooting.");
     }
+    $("#llm-dev").textContent = s.llm.device || "local";
+    $("#stage-llm").classList.toggle("npu", s.llm.device === "NPU");
     if (s.llm.reachable) {
-      setChip("#chip-llm", "ok", "Translator", s.llm.label);
+      setChip("#chip-llm", "ok", "Translator", `${s.llm.label} · ${s.llm.provider}`);
     } else {
       setChip("#chip-llm", "bad", "Translator", "offline");
-      problems.push("The translator is not running. Open a new PowerShell window and run <code>geniex serve</code>, then keep it open (README, step 4).");
+      problems.push(s.llm.hint || "The translator is not running. See README.");
     }
     showBanner(problems.join("<br>"), !s.asr.ready && !s.asr.loading);
     const b = s.beacon;

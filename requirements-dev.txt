@@ -1,11 +1,6 @@
-# Development on any machine (Windows x64, macOS, Linux) without a Snapdragon NPU.
-# Run with the CPU fallback:  python -m samvaad --asr transformers
-# Or with scripted engines:   python -m samvaad --asr mock --llm mock
-numpy>=2.0
-transformers==4.56.2
-torch>=2.7
-starlette>=0.40
-uvicorn>=0.30
-wsproto>=1.2
-httpx>=0.27
+# Tests and development on any machine.
+#   pip install -r requirements-dev.txt
+#   python -m pytest
+#   python -m samvaad --mock          # the interface with scripted engines, no models needed
+-r requirements.txt
 pytest>=8

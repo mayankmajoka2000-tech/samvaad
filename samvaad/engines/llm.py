@@ -1,13 +1,17 @@
 """The language model stage: translation, plain-language rewriting, Recall answers, summaries.
 
-Talks to any OpenAI-compatible chat endpoint. On a Snapdragon PC that is the GenieX
-local server running Qwen3-4B-Instruct-2507 on the Hexagon NPU
-(``geniex serve`` -> http://127.0.0.1:18181/v1). On other machines, Ollama or LM
-Studio work the same way for development.
+Talks to any OpenAI-compatible chat endpoint, running the same model, Qwen3-4B-Instruct-2507:
+
+* Snapdragon PC: GenieX runs it on the Hexagon NPU (``geniex serve`` -> http://127.0.0.1:18181/v1).
+* Any other laptop: Ollama runs it on the Apple GPU (Macs), an NVIDIA/AMD GPU or the CPU
+  (http://127.0.0.1:11434/v1, model ``qwen3:4b-instruct-2507-q4_K_M``).
+
+The default, ``auto``, uses whichever of the two is running, GenieX first.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import time
@@ -51,27 +55,53 @@ class LLMClient:
     """OpenAI-compatible chat client (GenieX, Ollama, LM Studio...)."""
 
     def __init__(self, base_url: str, model: str, api_key: str = "geniex", timeout: float = 60.0,
-                 temperature: float = 0.2) -> None:
+                 temperature: float = 0.2, provider: str = "", device: str = "",
+                 transport: httpx.AsyncBaseTransport | None = None) -> None:
         self.base_url = base_url.rstrip("/")
         self.model = model
         self.temperature = temperature
-        self._client = httpx.AsyncClient(timeout=timeout, headers={"Authorization": f"Bearer {api_key}"})
+        self.provider = provider or "OpenAI-compatible server"
+        self.device = device
+        self._client = httpx.AsyncClient(timeout=timeout, headers={"Authorization": f"Bearer {api_key}"},
+                                         transport=transport)
         self.reachable: bool | None = None
+        self.model_missing = False
         self.last_error = ""
+        self.hint = ""
 
     @property
     def label(self) -> str:
-        return self.model.split("/")[-1]
+        name = self.model.split("/")[-1]
+        if "qwen3" in name.lower() and "4b" in name.lower():
+            return "Qwen3-4B"
+        return name
 
     async def health(self) -> bool:
         try:
             r = await self._client.get(f"{self.base_url}/models", timeout=3.0)
             self.reachable = r.status_code == 200
             self.last_error = "" if self.reachable else f"HTTP {r.status_code}"
-        except httpx.HTTPError as e:
+            self.model_missing = False
+            if self.reachable and self.provider == "Ollama":
+                ids = {m.get("id", "") for m in (r.json().get("data") or []) if isinstance(m, dict)}
+                if self.model not in ids:  # Ollama is running but the model has not been downloaded yet
+                    self.reachable, self.model_missing = False, True
+                    self.last_error = f"Ollama is running but {self.model} is not downloaded"
+        except (httpx.HTTPError, ValueError) as e:
             self.reachable = False
             self.last_error = str(e) or e.__class__.__name__
         return bool(self.reachable)
+
+    async def keep_warm(self, minutes: int = 30) -> None:
+        """Ollama unloads a model after 5 idle minutes; ask it to keep Qwen3 in memory."""
+        if self.provider != "Ollama":
+            return
+        root = self.base_url[:-3] if self.base_url.endswith("/v1") else self.base_url
+        try:
+            await self._client.post(f"{root}/api/generate", json={"model": self.model, "keep_alive": f"{minutes}m"},
+                                    timeout=120.0)
+        except httpx.HTTPError:
+            pass
 
     async def chat(self, system: str, user: str, max_tokens: int = 400) -> str:
         body = {
@@ -111,7 +141,7 @@ class LLMClient:
             self.reachable = False if isinstance(e, httpx.ConnectError) else self.reachable
             self.last_error = str(e) or e.__class__.__name__
             return Translation(text, [], (time.perf_counter() - start) * 1000, ok=False,
-                               note="Translator unreachable; showing the original. Start GenieX (see README).")
+                               note="Translator unreachable; showing the original. Start the translator (see README).")
         data = parse_json(reply)
         if isinstance(data, dict) and isinstance(data.get("translation"), str) and data["translation"].strip():
             names = []
@@ -165,6 +195,8 @@ class MockLLM:
     label = "mock"
     model = "mock"
     base_url = "mock://"
+    provider = "mock"
+    device = ""
     reachable = True
     last_error = ""
 
@@ -197,9 +229,83 @@ class MockLLM:
         pass
 
 
-def create_llm(cfg: dict):
-    if (cfg.get("engine") or "openai").lower() == "mock":
+class AutoLLM:
+    """Uses whichever local translator is running: GenieX (Snapdragon NPU) first, then Ollama.
+
+    Re-checks on every ``health()`` call (the interface polls every few seconds), so starting
+    Ollama or GenieX after Samvaad is fine.
+    """
+
+    def __init__(self, clients: list[LLMClient]) -> None:
+        self.clients = clients
+        self.active = clients[0]
+        self._warmed = 0.0
+        self._tasks: set = set()
+
+    def __getattr__(self, name):  # label, model, base_url, provider, device, reachable, last_error...
+        return getattr(self.active, name)
+
+    async def health(self) -> bool:
+        missing = None
+        for client in self.clients:
+            if await client.health():
+                if client is not self.active or time.time() - self._warmed > 240:
+                    self._warmed = time.time()
+                    task = asyncio.get_running_loop().create_task(client.keep_warm())
+                    self._tasks.add(task)
+                    task.add_done_callback(self._tasks.discard)
+                self.active = client
+                return True
+            if client.model_missing:
+                missing = client
+        # Nothing ready: report the most useful problem (a running Ollama without the model).
+        self.active = missing or self.clients[-1]
+        return False
+
+    async def translate(self, *args, **kwargs) -> Translation:
+        return await self.active.translate(*args, **kwargs)
+
+    async def clarify(self, *args, **kwargs) -> str:
+        return await self.active.clarify(*args, **kwargs)
+
+    async def answer(self, *args, **kwargs) -> dict:
+        return await self.active.answer(*args, **kwargs)
+
+    async def summarize(self, *args, **kwargs) -> dict:
+        return await self.active.summarize(*args, **kwargs)
+
+    async def chat(self, *args, **kwargs) -> str:
+        return await self.active.chat(*args, **kwargs)
+
+    async def close(self) -> None:
+        for client in self.clients:
+            await client.close()
+
+
+GENIEX = {"base_url": "http://127.0.0.1:18181/v1", "model": "ai-hub-models/Qwen3-4B-Instruct-2507",
+          "api_key": "geniex"}
+OLLAMA = {"base_url": "http://127.0.0.1:11434/v1", "model": "qwen3:4b-instruct-2507-q4_K_M", "api_key": "ollama"}
+
+
+def create_llm(cfg: dict, transport: httpx.AsyncBaseTransport | None = None):
+    engine = (cfg.get("engine") or "auto").lower()
+    timeout = float(cfg.get("timeout", 60))
+    if engine == "mock":
         return MockLLM()
-    return LLMClient(cfg.get("base_url", "http://127.0.0.1:18181/v1"),
-                     cfg.get("model", "ai-hub-models/Qwen3-4B-Instruct-2507"),
-                     cfg.get("api_key", "geniex"), float(cfg.get("timeout", 60)))
+    geniex = {**GENIEX, **(cfg.get("geniex") or {})}
+    ollama = {**OLLAMA, **(cfg.get("ollama") or {})}
+
+    def build(c: dict, provider: str, device: str) -> LLMClient:
+        return LLMClient(c["base_url"], c["model"], c.get("api_key", "local"), timeout,
+                         provider=provider, device=device, transport=transport)
+
+    if engine == "geniex":
+        return build(geniex, "GenieX", "NPU")
+    if engine == "ollama":
+        return build(ollama, "Ollama", "GPU/CPU")
+    if engine == "openai":  # any other OpenAI-compatible server (LM Studio, llama.cpp...)
+        return build({"base_url": cfg.get("base_url", OLLAMA["base_url"]), "model": cfg.get("model", OLLAMA["model"]),
+                      "api_key": cfg.get("api_key", "local")}, "OpenAI-compatible server", "")
+    if engine != "auto":
+        raise ValueError(f"Unknown translator {engine!r}; use auto, geniex, ollama, openai or mock.")
+    return AutoLLM([build(geniex, "GenieX", "NPU"), build(ollama, "Ollama", "GPU/CPU")])

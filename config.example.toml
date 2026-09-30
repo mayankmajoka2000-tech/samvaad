@@ -1,27 +1,42 @@
-# Samvaad settings. setup.ps1 copies this file to config.toml; edit config.toml, not this one.
+# Samvaad settings. The setup script copies this file to config.toml; edit config.toml, not this one.
+# The defaults work on any laptop: Samvaad picks the fastest engines it finds.
 
 [server]
-host = "127.0.0.1"      # run.ps1 -Lan listens on the local network too, for Beacon
+host = "127.0.0.1"      # run with --lan (run.ps1 -Lan / run.sh --lan) to let Beacon connect over Wi-Fi
 port = 8765
 open_browser = true
 
 [asr]
-# qnn          = Whisper on the Snapdragon NPU (default)
-# transformers = Whisper on the CPU (fallback; needs PyTorch)
+# auto         = Whisper on the Snapdragon NPU when its models are installed, otherwise faster-whisper
+# qnn          = Whisper on the Snapdragon NPU (Windows on Arm)
+# faster       = Whisper on any laptop's CPU, or an NVIDIA GPU (Windows, Mac, Linux)
+# transformers = Whisper through PyTorch
 # mock         = scripted lines, for trying the interface without models
-engine = "qnn"
-model_size = "base"
+engine = "auto"
+model_size = "base"          # NPU build from Qualcomm AI Hub
+cpu_model_size = "small"     # other laptops: tiny, base, small, medium (bigger = more accurate, slower)
+device = "auto"              # faster-whisper: auto, cpu or cuda
 encoder = "models/whisper/encoder.onnx"
 decoder = "models/whisper/decoder.onnx"
-partial_interval_s = 1.2   # live partial captions while someone speaks; 0 turns them off
+partial_interval_s = 1.2     # live partial captions while someone speaks; 0 turns them off
 
 [llm]
-# Any OpenAI-compatible server. GenieX runs Qwen3 on the NPU: start it with `geniex serve`.
-engine = "openai"
+# auto   = GenieX (Qwen3 on the Snapdragon NPU) if it is running, otherwise Ollama
+# geniex / ollama = only that one
+# openai = any other OpenAI-compatible server: set base_url and model below
+# mock   = phrasebook, for tests
+engine = "auto"
+timeout = 60
+# base_url = "http://127.0.0.1:1234/v1"   # e.g. LM Studio, when engine = "openai"
+# model = "qwen3-4b-instruct-2507"
+
+[llm.geniex]
 base_url = "http://127.0.0.1:18181/v1"
 model = "ai-hub-models/Qwen3-4B-Instruct-2507"
-api_key = "geniex"
-timeout = 60
+
+[llm.ollama]
+base_url = "http://127.0.0.1:11434/v1"
+model = "qwen3:4b-instruct-2507-q4_K_M"
 
 [conversation]
 lang_a = "en"

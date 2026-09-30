@@ -1,9 +1,10 @@
 """The numbers-and-names guard.
 
 Every translation is checked before it is shown or spoken: the numbers (digits and
-number words) and the names in the source sentence must survive into the
-translation. A changed digit or a lost name holds the line for review; a mismatch
-in number *words* only asks the listener to confirm.
+number words), the names, the days of the week and the months in the source
+sentence must survive into the translation. A changed digit, day or month, or a
+lost name, holds the line for review; a mismatch in number *words* or in the time
+of day (morning, evening...) only asks the listener to confirm.
 
 The checks are deliberately simple and deterministic, so they can be tested and
 trusted: no model sits between a doctor's "500 mg" and what the patient hears.
@@ -52,6 +53,58 @@ NUMBER_WORDS: dict[str, dict[str, int]] = {
 }
 
 
+# Days of the week and months, mapped to English, for the languages with number words.
+_DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+_MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September",
+           "October", "November", "December"]
+
+
+def _table(names: list[str], words: list[str]) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for canonical, variants in zip(names, words):
+        for w in variants.split("|"):
+            out[w] = canonical
+    return out
+
+
+DATE_WORDS: dict[str, dict[str, str]] = {
+    "en": _table(_DAYS + _MONTHS, [d.lower() for d in _DAYS] + [m.lower() for m in _MONTHS]),
+    "hi": _table(_DAYS + _MONTHS, [
+        "सोमवार", "मंगलवार", "बुधवार", "गुरुवार|बृहस्पतिवार|वीरवार", "शुक्रवार", "शनिवार", "रविवार|इतवार",
+        "जनवरी", "फरवरी|फ़रवरी", "मार्च", "अप्रैल|अप्रेल", "मई", "जून", "जुलाई", "अगस्त", "सितंबर|सितम्बर",
+        "अक्टूबर|अक्तूबर", "नवंबर|नवम्बर", "दिसंबर|दिसम्बर"]),
+    "mr": _table(_DAYS + _MONTHS, [
+        "सोमवार", "मंगळवार", "बुधवार", "गुरुवार", "शुक्रवार", "शनिवार", "रविवार",
+        "जानेवारी", "फेब्रुवारी", "मार्च", "एप्रिल", "मे", "जून", "जुलै", "ऑगस्ट", "सप्टेंबर", "ऑक्टोबर",
+        "नोव्हेंबर", "डिसेंबर"]),
+    "es": _table(_DAYS + _MONTHS, [
+        "lunes", "martes", "miércoles|miercoles", "jueves", "viernes", "sábado|sabado", "domingo",
+        "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre|setiembre",
+        "octubre", "noviembre", "diciembre"]),
+    "fr": _table(_DAYS + _MONTHS, [
+        "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche",
+        "janvier", "février|fevrier", "mars", "avril", "mai", "juin", "juillet", "août|aout", "septembre",
+        "octobre", "novembre", "décembre|decembre"]),
+}
+
+# Time of day: a swap (10 in the morning -> 10 at night) asks the listener to confirm.
+TIME_WORDS: dict[str, dict[str, str]] = {
+    "en": {"morning": "morning", "afternoon": "afternoon", "evening": "evening", "night": "night",
+           "tonight": "night"},
+    "hi": {"सुबह": "morning", "सवेरे": "morning", "प्रातः": "morning", "प्रात": "morning", "दोपहर": "afternoon",
+           "शाम": "evening", "सायं": "evening", "रात": "night", "रात्रि": "night"},
+    "mr": {"सकाळ": "morning", "सकाळी": "morning", "दुपार": "afternoon", "दुपारी": "afternoon",
+           "संध्याकाळ": "evening", "संध्याकाळी": "evening", "रात्र": "night", "रात्री": "night"},
+    "es": {"noche": "night"},
+    "fr": {"matin": "morning", "soir": "evening", "soirée": "evening", "nuit": "night"},
+}
+
+# Greetings are not times: "Good morning" often becomes "नमस्ते" or "सुप्रभात".
+_GREETINGS_RE = re.compile(
+    r"\bgood\s+(morning|afternoon|evening|night)\b|शुभ\s+(रात्रि|संध्या|सकाळ|रात्री)|"
+    r"\bbonne\s+nuit\b|\bbon\s+matin\b|\bbuenas\s+noches\b", re.I)
+
+
 def normalise_digits(text: str) -> str:
     """Map every non-ASCII decimal digit (e.g. Devanagari ५) to its ASCII form."""
     return text.translate(_DIGIT_TABLE)
@@ -72,21 +125,38 @@ def normalise_number(token: str) -> str:
 class Facts:
     digits: list[str] = field(default_factory=list)
     words: list[str] = field(default_factory=list)
+    dates: list[str] = field(default_factory=list)   # "Friday", "October"
+    times: list[str] = field(default_factory=list)   # "morning", "night"
 
     @property
     def all(self) -> list[str]:
         return self.digits + self.words
 
 
+def _base(lang: str) -> str:
+    return (lang or "").split("-")[0].lower()
+
+
 def extract_facts(text: str, lang: str) -> Facts:
-    """Numbers found in ``text``: digits in any script, plus number words for ``lang``."""
+    """Facts found in ``text``: digits in any script, plus number words, days, months and
+    times of day for ``lang``."""
     t = normalise_digits(text or "")
     facts = Facts(digits=[normalise_number(m.group(0)) for m in _NUM_RE.finditer(t)])
-    words = NUMBER_WORDS.get((lang or "").split("-")[0].lower())
-    if words:
-        for token in _SPLIT_RE.split(t.lower()):
-            if token in words:
-                facts.words.append(str(words[token]))
+    code = _base(lang)
+    words, dates, times = NUMBER_WORDS.get(code), DATE_WORDS.get(code), TIME_WORDS.get(code)
+    tokens = [x for x in _SPLIT_RE.split(t.lower()) if x]
+    for i, token in enumerate(tokens):
+        if words and token in words:
+            facts.words.append(str(words[token]))
+        if dates and token in dates:
+            # English "may" is usually a verb: count it only next to a number ("2 May", "May 2").
+            near_number = any(_NUM_RE.fullmatch(tokens[j]) for j in (i - 1, i + 1) if 0 <= j < len(tokens))
+            if not (code == "en" and token == "may" and not near_number):
+                facts.dates.append(dates[token])
+    if times:
+        for token in _SPLIT_RE.split(_GREETINGS_RE.sub(" ", t.lower())):
+            if token in times:
+                facts.times.append(times[token])
     return facts
 
 
@@ -117,6 +187,10 @@ class GuardResult:
     extra: list[str]
     names: list[tuple[str, str]]
     lost_names: list[tuple[str, str]]
+    dates: list[str] = field(default_factory=list)
+    dates_missing: list[str] = field(default_factory=list)
+    dates_extra: list[str] = field(default_factory=list)
+    times_changed: list[str] = field(default_factory=list)
 
     @property
     def speakable(self) -> bool:
@@ -127,24 +201,34 @@ class GuardResult:
             parts = []
             if self.numbers:
                 parts.append("Numbers match: " + " · ".join(self.numbers))
+            if self.dates:
+                parts.append("Dates match: " + " · ".join(self.dates))
             if self.names:
                 kept = [s if s == t else f"{s} → {t}" for s, t in self.names]
                 parts.append("Names kept: " + ", ".join(kept))
             return ". ".join(parts)
         if self.status == "hold":
             bits = []
-            if self.missing:
-                verb = "are" if len(self.missing) > 1 else "is"
-                bits.append(f"{', '.join(self.missing)} {verb} in the original but missing here")
-            if self.extra:
-                verb = "appear" if len(self.extra) > 1 else "appears"
-                bits.append(f"{', '.join(self.extra)} {verb} instead")
+            missing, extra = self.missing + self.dates_missing, self.extra + self.dates_extra
+            if missing:
+                verb = "are" if len(missing) > 1 else "is"
+                bits.append(f"{', '.join(missing)} {verb} in the original but missing here")
+            if extra:
+                verb = "appear" if len(extra) > 1 else "appears"
+                bits.append(f"{', '.join(extra)} {verb} instead")
             if self.lost_names:
                 bits.append("name " + ", ".join(s for s, _ in self.lost_names) + " was lost")
+            if self.times_changed:
+                bits.append("time of day changed (" + " → ".join(self.times_changed) + ")")
             detail = "; ".join(bits) or "numbers differ"
             return f"Held for review: {detail}. Not spoken aloud; ask the speaker to repeat."
         if self.status == "confirm":
-            return "Please confirm: number words differ (" + ", ".join(self.missing + self.extra) + ")."
+            bits = []
+            if self.missing or self.extra:
+                bits.append("number words differ (" + ", ".join(self.missing + self.extra) + ")")
+            if self.times_changed:
+                bits.append("time of day changed (" + " → ".join(self.times_changed) + ")")
+            return "Please confirm: " + "; ".join(bits) + "."
         return "No numbers or names to check"
 
     def to_dict(self) -> dict:
@@ -155,14 +239,20 @@ class GuardResult:
             "extra": self.extra,
             "names": [list(p) for p in self.names],
             "lost_names": [list(p) for p in self.lost_names],
+            "dates": self.dates,
+            "dates_missing": self.dates_missing,
+            "dates_extra": self.dates_extra,
+            "times_changed": self.times_changed,
             "message": self.message(),
         }
 
 
 def check(source: str, source_lang: str, translation: str, target_lang: str,
           names: list[tuple[str, str]] | None = None) -> GuardResult:
-    """Compare the numbers and names in ``source`` with those in ``translation``."""
-    names = [(str(s), str(t)) for s, t in (names or []) if s and t]
+    """Compare the numbers, dates and names in ``source`` with those in ``translation``."""
+    # Only names that are really in this sentence: models sometimes list names from earlier lines.
+    source_lower = (source or "").lower()
+    names = [(str(s), str(t)) for s, t in (names or []) if s and t and str(s).lower() in source_lower]
     a = extract_facts(source, source_lang)
     b = extract_facts(translation, target_lang)
     missing = _minus(a.all, b.all)
@@ -170,16 +260,27 @@ def check(source: str, source_lang: str, translation: str, target_lang: str,
     digit_problem = any(d not in b.all for d in a.digits) or any(d not in a.all for d in b.digits)
     lowered = (translation or "").lower()
     lost = [(s, t) for s, t in names if t.lower() not in lowered]
+    # Days, months and times are compared only when both languages have word lists.
+    both_dates = _base(source_lang) in DATE_WORDS and _base(target_lang) in DATE_WORDS
+    dates_missing = _minus(a.dates, b.dates) if both_dates else []
+    dates_extra = _minus(b.dates, a.dates) if both_dates else []
+    both_times = _base(source_lang) in TIME_WORDS and _base(target_lang) in TIME_WORDS
+    times_changed = []
+    if both_times and a.times and b.times and set(a.times) != set(b.times):
+        times_changed = [" / ".join(_unique(a.times)), " / ".join(_unique(b.times))]
+    checked_dates = _unique(a.dates) if both_dates else []
 
-    if digit_problem or lost:
+
+    if digit_problem or lost or dates_missing or dates_extra:
         status = "hold"
-    elif missing or extra:
+    elif missing or extra or times_changed:
         status = "confirm"
-    elif not a.all and not names:
+    elif not a.all and not names and not checked_dates:
         status = "none"
     else:
         status = "pass"
-    return GuardResult(status, _unique(a.all), _unique(missing), _unique(extra), names, lost)
+    return GuardResult(status, _unique(a.all), _unique(missing), _unique(extra), names, lost,
+                       checked_dates, _unique(dates_missing), _unique(dates_extra), times_changed)
 
 
 def numbers_supported(answer: str, answer_lang: str, sources: list[tuple[str, str]]) -> list[str]:

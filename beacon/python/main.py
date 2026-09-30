@@ -5,7 +5,7 @@ asks the microcontroller to vibrate and flash. The laptop never connects to the
 board, so no port needs opening here.
 
 Set SAMVAAD_URL below to the "Beacon address" that Samvaad prints when started
-with  .\\run.ps1 -Lan   (for example http://192.168.1.23:8765).
+with  .\\run.ps1 -Lan  or  bash run.sh --lan  (for example http://192.168.1.23:8765).
 """
 
 import json

@@ -23,7 +23,7 @@ No motor yet? The LED alone works for a first test.
 1. Connect the UNO Q to the same Wi-Fi network as the laptop (Arduino App Lab walks you through this on first start).
 2. In **Arduino App Lab**, create a new app called `Samvaad Beacon`.
 3. Replace the app's `python/main.py` with [`python/main.py`](python/main.py) and its `sketch/sketch.ino` with [`sketch/sketch.ino`](sketch/sketch.ino).
-4. On the laptop, start Samvaad with `.\run.ps1 -Lan`. It prints a **Beacon address** such as `http://192.168.1.23:8765`. Allow access if Windows Firewall asks (Private networks only).
+4. On the laptop, start Samvaad with `.\run.ps1 -Lan` (Windows) or `bash run.sh --lan` (Mac, Linux). It prints a **Beacon address** such as `http://192.168.1.23:8765`. Allow access if the firewall asks (Private networks only on Windows).
 5. In `main.py`, set `SAMVAAD_URL` to that address, then press **Run** in App Lab.
 
 Beacon gives one long buzz when it connects, and the Beacon card in Samvaad shows **connected**. Press **Send a test alert** in Samvaad to try it.

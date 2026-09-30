@@ -1,7 +1,8 @@
-"""Benchmark Samvaad on this PC: speech recognition, translation and end-to-end timing.
+"""Benchmark Samvaad on this laptop: speech recognition and translation timing.
 
-    .venv\\Scripts\\python tools\\benchmark.py --audio samples\\fox.wav --runs 10
-    .venv\\Scripts\\python tools\\benchmark.py --compare-cpu      # NPU vs CPU (needs PyTorch)
+    python tools/benchmark.py --runs 10                  # the engines Samvaad would pick (auto)
+    python tools/benchmark.py --compare-cpu              # Snapdragon: NPU vs CPU
+    .venv\\Scripts\\python tools\\benchmark.py ...          # on Windows
 
 Writes a Markdown table to the console and results to benchmarks/<date>.json, so the
 numbers in your presentation are measured on your own laptop.
@@ -75,7 +76,7 @@ def bench_asr(engine, audio: np.ndarray, runs: int, language: str | None) -> dic
 
 async def bench_llm(llm, runs: int) -> dict:
     if not await llm.health():
-        return {"error": f"Translator unreachable at {llm.base_url}: {llm.last_error}. Run `geniex serve` first."}
+        return {"error": f"Translator unreachable ({llm.last_error}). Start Ollama or GenieX first."}
     times, samples = [], []
     for i in range(runs):
         src, tgt, text = SENTENCES[i % len(SENTENCES)]
@@ -84,7 +85,7 @@ async def bench_llm(llm, runs: int) -> dict:
         if i < len(SENTENCES):
             samples.append({"src": text, "translation": tr.text})
     await llm.close()
-    return {**summarise(times), "samples": samples}
+    return {**summarise(times), "samples": samples, "engine": f"{llm.label} · {getattr(llm, 'provider', '')}"}
 
 
 def main() -> None:
@@ -103,11 +104,15 @@ def main() -> None:
     if Path(args.audio).exists():
         audio = load_wav(args.audio)
         print(f"Audio: {args.audio} ({len(audio) / 16000:.1f} s)\n")
-        npu = create_asr({**cfg["asr"], "engine": "qnn"})
-        results["asr_npu"] = bench_asr(npu, audio, args.runs, language)
-        if args.compare_cpu:
-            cpu = create_asr({**cfg["asr"], "engine": "transformers"})
+        main_engine = create_asr(cfg["asr"])
+        key = "asr_npu" if main_engine.device == "NPU" else "asr_cpu"
+        results[key] = bench_asr(main_engine, audio, args.runs, language)
+        results[key]["engine"] = f"{main_engine.name} · {main_engine.device}"
+        if args.compare_cpu and key == "asr_npu":
+            cpu = create_asr({**cfg["asr"], "engine": "faster", "cpu_model_size": cfg["asr"].get("model_size", "base"),
+                              "device": "cpu"})
             results["asr_cpu"] = bench_asr(cpu, audio, max(3, args.runs // 3), language)
+            results["asr_cpu"]["engine"] = f"{cpu.name} · {cpu.device}"
     else:
         print(f"No audio file at {args.audio}; skipping speech. Pass --audio path\\to\\clip.wav\n")
 
@@ -116,20 +121,23 @@ def main() -> None:
 
     print("| Stage | Median ms | Mean ms | p90 ms | Runs | Notes |")
     print("| --- | ---: | ---: | ---: | ---: | --- |")
-    for key, label in (("asr_npu", "Whisper on NPU"), ("asr_cpu", "Whisper on CPU"), ("translation", "Qwen3 translation")):
+    for key, label in (("asr_npu", "Whisper on NPU"), ("asr_cpu", "Whisper on CPU/GPU"), ("translation", "Qwen3 translation")):
         r = results.get(key)
         if not r:
             continue
         if "error" in r:
-            print(f"| {label} | – | – | – | – | {r['error']} |")
+            print(f"| {label} | - | - | - | - | {r['error']} |")
             continue
+        label = f"{label} ({r['engine']})" if r.get("engine") else label
         note = f"real-time factor {r['real_time_factor']} on {r['audio_s']} s" if "audio_s" in r else ""
         print(f"| {label} | {r['median']} | {r['mean']} | {r['p90']} | {r['n']} | {note} |")
     if "asr_npu" in results and "asr_cpu" in results:
         speedup = results["asr_cpu"]["median"] / results["asr_npu"]["median"]
         print(f"\nNPU is {speedup:.1f}x faster than CPU for speech recognition.")
-    if "asr_npu" in results:
-        print(f"\nTranscript: {results['asr_npu']['text']}")
+    for key in ("asr_npu", "asr_cpu"):
+        if key in results:
+            print(f"\nTranscript: {results[key]['text']}")
+            break
 
     out = ROOT / "benchmarks"
     out.mkdir(exist_ok=True)
@@ -139,18 +147,10 @@ def main() -> None:
 
 
 def machine_name() -> str:
-    import platform
+    from samvaad import platform_info
 
-    name = platform.processor() or platform.machine()
-    try:
-        import subprocess
-
-        out = subprocess.run(["powershell", "-NoProfile", "-Command", "(Get-CimInstance Win32_Processor).Name"],
-                             capture_output=True, text=True, timeout=10)
-        name = out.stdout.strip() or name
-    except Exception:
-        pass
-    return name
+    info = platform_info.describe()
+    return f"{info['chip']} ({info['os']}, {info['arch']})"
 
 
 if __name__ == "__main__":
