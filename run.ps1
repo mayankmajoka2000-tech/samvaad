@@ -31,7 +31,7 @@ function Test-Url([string]$url) {
     try { Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 2 | Out-Null; return $true } catch { return $false }
 }
 
-$snapdragon = ("$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture)" -eq "Arm64")
+$snapdragon = ((Get-CimInstance Win32_Processor | Select-Object -First 1).Architecture -eq 12)
 $geniex = Get-Command geniex -ErrorAction SilentlyContinue
 $ollama = Get-Command ollama -ErrorAction SilentlyContinue
 if (-not $ollama) {

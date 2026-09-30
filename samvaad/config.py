@@ -23,7 +23,7 @@ DEFAULTS: dict = {
     },
     "llm": {
         "engine": "auto",            # auto = GenieX (NPU) if running, else Ollama
-        "timeout": 60,
+        "timeout": 180,  # seconds; a cold start on a CPU-only laptop can take a minute
         "geniex": {"base_url": "http://127.0.0.1:18181/v1", "model": "ai-hub-models/Qwen3-4B-Instruct-2507"},
         "ollama": {"base_url": "http://127.0.0.1:11434/v1", "model": "qwen3:4b-instruct-2507-q4_K_M"},
     },

@@ -35,9 +35,10 @@ function Warn([string]$text) { Write-Host "      $text" -ForegroundColor Yellow 
 # ------------------------------------------------------------------ 1
 Step 1 "Checking this laptop"
 $cpu = (Get-CimInstance Win32_Processor | Select-Object -First 1).Name
-$os = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture
+$cpuArch = (Get-CimInstance Win32_Processor | Select-Object -First 1).Architecture   # 12 = ARM64, 9 = x64
+$os = if ($cpuArch -eq 12) { "Arm64" } else { "X64" }
 Write-Host "      Processor: $cpu ($os)"
-$Snapdragon = ("$os" -eq "Arm64")
+$Snapdragon = ($cpuArch -eq 12)
 if ($Snapdragon) {
     if (-not $Chipset) {
         if ($cpu -match "X2") { $Chipset = "qualcomm-snapdragon-x2-elite" } else { $Chipset = "qualcomm-snapdragon-x-elite" }
@@ -48,10 +49,12 @@ if ($Snapdragon) {
 }
 
 # ------------------------------------------------------------------ 2
-function Find-Python([string]$wantMachine) {
+function Test-Winget { return [bool](Get-Command winget -ErrorAction SilentlyContinue) }
+
+function Find-Python([string]$wantPlatform) {
     $candidates = @()
     $specs = @("-3.12", "-3.13", "-3.11")
-    if ($wantMachine -eq "ARM64") { $specs = @("-V:3.12-arm64", "-3.12") }
+    if ($wantPlatform -eq "win-arm64") { $specs = @("-V:3.12-arm64", "-3.12") }
     foreach ($spec in $specs) {
         try {
             $p = & py $spec -c "import sys; print(sys.executable)" 2>$null
@@ -64,8 +67,10 @@ function Find-Python([string]$wantMachine) {
     }
     foreach ($c in $candidates) {
         try {
-            $machine = & $c -c "import platform; print(platform.machine())"
-            if ("$machine".Trim() -eq $wantMachine) { return $c }
+            # sysconfig reports the build itself (win-amd64 / win-arm64 / win32); platform.machine()
+            # reports the CPU, so an emulated x64 Python on a Snapdragon PC would wrongly pass.
+            $plat = & $c -c "import sysconfig, sys; print(sysconfig.get_platform() if sys.version_info >= (3, 11) else 'old')"
+            if ("$plat".Trim() -eq $wantPlatform) { return $c }
         } catch { }
     }
     return $null
@@ -73,20 +78,20 @@ function Find-Python([string]$wantMachine) {
 
 if ($Snapdragon) {
     Step 2 "Finding native ARM64 Python 3.12"
-    $py = Find-Python "ARM64"
-    if (-not $py) {
+    $py = Find-Python "win-arm64"
+    if (-not $py -and (Test-Winget)) {
         Write-Host "      Installing Python 3.12 (ARM64) with winget..."
         winget install --id Python.Python.3.12 --architecture arm64 --scope user --silent --accept-package-agreements --accept-source-agreements
-        $py = Find-Python "ARM64"
+        $py = Find-Python "win-arm64"
     }
     if (-not $py) { throw "ARM64 Python 3.12 was not found. Install 'Windows installer (ARM64)' from python.org, then run .\setup.ps1 again." }
 } else {
     Step 2 "Finding Python 3.11 to 3.13"
-    $py = Find-Python "AMD64"
-    if (-not $py) {
+    $py = Find-Python "win-amd64"
+    if (-not $py -and (Test-Winget)) {
         Write-Host "      Installing Python 3.12 with winget..."
-        winget install --id Python.Python.3.12 --scope user --silent --accept-package-agreements --accept-source-agreements
-        $py = Find-Python "AMD64"
+        winget install --id Python.Python.3.12 --architecture x64 --scope user --silent --accept-package-agreements --accept-source-agreements
+        $py = Find-Python "win-amd64"
     }
     if (-not $py) { throw "Python 3.12 was not found. Install it from python.org (tick 'Add to PATH'), then run .\setup.ps1 again." }
 }
@@ -165,7 +170,7 @@ if ($Snapdragon) {
 } else {
     Step 5 "Translator: Qwen3-4B with Ollama"
     $ollama = Find-Ollama
-    if (-not $ollama) {
+    if (-not $ollama -and (Test-Winget)) {
         Write-Host "      Installing Ollama with winget..."
         winget install --id Ollama.Ollama -e --silent --accept-package-agreements --accept-source-agreements
         $ollama = Find-Ollama
@@ -195,6 +200,7 @@ if (-not (Test-Path "config.toml")) {
     $cfg = Get-Content "config.example.toml" -Raw -Encoding UTF8
     $cfg = $cfg -replace '(?m)^model_size = "base"', "model_size = `"$size`""
     $cfg = $cfg -replace '(?m)^cpu_model_size = "small"', "cpu_model_size = `"$Whisper`""
+    $cfg = $cfg -replace '(?m)^model = "qwen3:4b-instruct-2507-q4_K_M"', "model = `"$OllamaModel`""
     [System.IO.File]::WriteAllText((Join-Path $PSScriptRoot "config.toml"), $cfg, (New-Object System.Text.UTF8Encoding $false))
     Ok "Created config.toml"
 } else { Ok "config.toml already exists (left unchanged)" }

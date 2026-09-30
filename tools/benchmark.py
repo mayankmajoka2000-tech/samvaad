@@ -77,6 +77,11 @@ def bench_asr(engine, audio: np.ndarray, runs: int, language: str | None) -> dic
 async def bench_llm(llm, runs: int) -> dict:
     if not await llm.health():
         return {"error": f"Translator unreachable ({llm.last_error}). Start Ollama or GenieX first."}
+    # Load the model first (a cold start can take a minute on a CPU-only laptop), then time.
+    client = getattr(llm, "active", llm)
+    if hasattr(client, "keep_warm"):
+        await client.keep_warm()
+    await llm.translate("Hello.", "en", "hi")
     times, samples = [], []
     for i in range(runs):
         src, tgt, text = SENTENCES[i % len(SENTENCES)]

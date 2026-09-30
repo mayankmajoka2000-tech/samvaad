@@ -289,7 +289,7 @@ OLLAMA = {"base_url": "http://127.0.0.1:11434/v1", "model": "qwen3:4b-instruct-2
 
 def create_llm(cfg: dict, transport: httpx.AsyncBaseTransport | None = None):
     engine = (cfg.get("engine") or "auto").lower()
-    timeout = float(cfg.get("timeout", 60))
+    timeout = float(cfg.get("timeout", 180))
     if engine == "mock":
         return MockLLM()
     geniex = {**GENIEX, **(cfg.get("geniex") or {})}

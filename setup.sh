@@ -34,12 +34,20 @@ OS="$(uname -s)"
 ARCH="$(uname -m)"
 case "$OS" in
   Darwin) CHIP="$(sysctl -n machdep.cpu.brand_string 2>/dev/null || echo Mac)" ;;
-  Linux)  CHIP="$(grep -m1 -i 'model name' /proc/cpuinfo 2>/dev/null | cut -d: -f2 | sed 's/^ *//')" ;;
+  Linux)  CHIP="$( (grep -m1 -i -E 'model name|^Model|^Hardware' /proc/cpuinfo 2>/dev/null || true) | cut -d: -f2 | sed 's/^ *//')" ;;
   *)      fail "This script is for macOS and Linux. On Windows, run setup.ps1 in PowerShell." ;;
 esac
 echo "      ${CHIP:-unknown processor} ($OS, $ARCH)"
 if [ "$OS" = "Darwin" ] && [ "$ARCH" = "arm64" ]; then
   ok "Apple Silicon: Qwen3 will run on the Mac's GPU"
+fi
+if [ "$OS" = "Darwin" ]; then
+  MACOS_MAJOR="$(sw_vers -productVersion 2>/dev/null | cut -d. -f1)"
+  if [ -n "$MACOS_MAJOR" ] && [ "$MACOS_MAJOR" -lt 14 ] 2>/dev/null && [ "$TRANSLATOR" = "1" ]; then
+    warn "Ollama (the translator) needs macOS 14 Sonoma or newer; this Mac has $(sw_vers -productVersion)."
+    warn "Continuing without the translator. Update macOS, then run setup.sh again."
+    TRANSLATOR=0
+  fi
 fi
 command -v curl >/dev/null 2>&1 || fail "curl is needed. Install it and run setup.sh again."
 
@@ -63,12 +71,12 @@ use_uv() {
   if [ -z "$UV" ] && [ -x "$HOME/.cargo/bin/uv" ]; then UV="$HOME/.cargo/bin/uv"; fi
   if [ -z "$UV" ]; then
     echo "      Installing uv (a Python installer) into your home folder..."
-    curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh >/dev/null
+    curl -LsSf https://astral.sh/uv/install.sh | env UV_NO_MODIFY_PATH=1 sh >/dev/null || true
     UV="$HOME/.local/bin/uv"
     [ -x "$UV" ] || UV="$HOME/.cargo/bin/uv"
   fi
   [ -x "$UV" ] || fail "Could not install uv. Install Python 3.12 from python.org and run setup.sh again."
-  "$UV" venv --python 3.12 --seed .venv >/dev/null
+  "$UV" venv --python 3.12 --seed .venv >/dev/null || fail "uv could not create Python 3.12. Check the internet connection and run setup.sh again." 
 }
 
 VPY=".venv/bin/python"
@@ -91,13 +99,13 @@ fi
 
 # ------------------------------------------------------------------ 3
 step 3 "Installing packages into .venv"
-"$VPY" -m pip install --upgrade pip --quiet
+"$VPY" -m pip install --upgrade pip --quiet || fail "Could not update pip. Check the internet connection and run setup.sh again."
 "$VPY" -m pip install -r requirements.txt --quiet || fail "Installing packages failed. Check the internet connection and run setup.sh again."
 ok "Packages installed"
 
 # ------------------------------------------------------------------ 4
 step 4 "Downloading the Whisper speech model ($WHISPER)"
-"$VPY" - "$WHISPER" <<'PYEOF'
+"$VPY" - "$WHISPER" <<'PYEOF' || fail "Could not download the Whisper model. Check the internet connection and run setup.sh again."
 import sys
 from faster_whisper import WhisperModel
 WhisperModel(sys.argv[1], device="cpu", compute_type="int8")
@@ -134,14 +142,14 @@ else
     if [ "$OS" = "Darwin" ]; then
       echo "      Installing the Ollama app..."
       TMPZIP="$(mktemp -d)/Ollama-darwin.zip"
-      curl -fL --progress-bar -o "$TMPZIP" https://ollama.com/download/Ollama-darwin.zip
+      curl -fL --progress-bar -o "$TMPZIP" https://ollama.com/download/Ollama-darwin.zip || fail "Could not download Ollama. Check the internet connection and run setup.sh again."
       DEST="/Applications"; [ -w "$DEST" ] || { DEST="$HOME/Applications"; mkdir -p "$DEST"; }
       ditto -x -k "$TMPZIP" "$DEST"
       ok "Installed Ollama in $DEST"
     else
       echo "      Installing Ollama (it may ask for your password)..."
       command -v zstd >/dev/null 2>&1 || warn "If the install fails, install zstd first (e.g. sudo apt install zstd)."
-      curl -fsSL https://ollama.com/install.sh | sh
+      curl -fsSL https://ollama.com/install.sh | sh || warn "The Ollama installer reported a problem."
     fi
     OLLAMA="$(find_ollama || true)"
   fi
@@ -149,7 +157,7 @@ else
   ok "Ollama: $OLLAMA"
   start_ollama || fail "Ollama did not start. Open the Ollama app (or run 'ollama serve'), then run setup.sh again."
   echo "      Downloading $OLLAMA_MODEL (about 2.5 GB, first time only)..."
-  "$OLLAMA" pull "$OLLAMA_MODEL"
+  "$OLLAMA" pull "$OLLAMA_MODEL" || fail "Downloading $OLLAMA_MODEL failed. Check the internet connection and run setup.sh again."
   ok "Translator ready"
 fi
 
@@ -164,7 +172,8 @@ if [ ! -f samples/fox.wav ]; then
   fi
 fi
 if [ ! -f config.toml ]; then
-  sed "s/^cpu_model_size = \"small\"/cpu_model_size = \"$WHISPER\"/" config.example.toml > config.toml
+  sed -e "s/^cpu_model_size = \"small\"/cpu_model_size = \"$WHISPER\"/" \
+      -e "s|^model = \"qwen3:4b-instruct-2507-q4_K_M\"|model = \"$OLLAMA_MODEL\"|" config.example.toml > config.toml
   ok "Created config.toml"
 else
   ok "config.toml already exists (left unchanged)"
