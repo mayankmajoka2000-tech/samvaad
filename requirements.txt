@@ -1,0 +1,13 @@
+# Samvaad on a Snapdragon PC (Windows 11 on Arm, native ARM64 Python 3.12).
+# Speech on the NPU: the same pins as Qualcomm's Whisper Windows sample.
+onnxruntime==1.24.4
+onnxruntime-qnn==2.3.0
+numpy==2.4.6
+transformers==4.56.2
+qai-hub-apps>=0.34
+
+# The local server and the language-model client (pure Python).
+starlette>=0.40
+uvicorn>=0.30
+wsproto>=1.2
+httpx>=0.27

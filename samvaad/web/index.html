@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Samvaad</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>Samvaad</h1>
+      <span class="deva" lang="hi">संवाद</span>
+    </div>
+    <div class="chips" aria-live="polite">
+      <span class="chip-status" id="chip-asr">Speech: <b>starting…</b></span>
+      <span class="chip-status" id="chip-llm">Translator: <b>checking…</b></span>
+      <span class="chip-status" id="chip-net">Network: <b>…</b></span>
+    </div>
+  </header>
+
+  <section class="pipeline" aria-label="On-device pipeline">
+    <span class="pipe-label">Pipeline</span>
+    <ol class="stages">
+      <li class="stage" data-stage="capture">Capture <small>CPU</small></li>
+      <li class="stage npu" data-stage="recognise">Recognise <small id="asr-dev">NPU</small></li>
+      <li class="stage npu" data-stage="translate">Translate <small>NPU</small></li>
+      <li class="stage" data-stage="guard">Guard <small>CPU</small></li>
+      <li class="stage" data-stage="speak">Speak <small>CPU</small></li>
+    </ol>
+    <div class="meter" id="meter" title="Microphone level" aria-hidden="true"><i></i></div>
+  </section>
+
+  <div class="banner" id="banner" hidden></div>
+
+  <div class="layout">
+    <main class="main">
+      <div class="tabs" role="tablist" aria-label="Modes">
+        <button class="tab" role="tab" id="tab-conv" aria-controls="panel-conv" aria-selected="true" type="button">Conversation</button>
+        <button class="tab" role="tab" id="tab-cap" aria-controls="panel-cap" aria-selected="false" type="button">Live captions</button>
+        <button class="tab" role="tab" id="tab-recall" aria-controls="panel-recall" aria-selected="false" type="button">Recall</button>
+      </div>
+
+      <!-- Conversation -->
+      <section class="panel" id="panel-conv" role="tabpanel" aria-labelledby="tab-conv">
+        <div class="bar">
+          <div class="row">
+            <div class="seg" role="group" aria-label="How people take turns">
+              <button type="button" data-turn="auto" aria-pressed="true">Hands-free</button>
+              <button type="button" data-turn="ptt" aria-pressed="false">Push to talk</button>
+            </div>
+            <button class="btn primary" id="listen" type="button">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="1.5" width="5" height="9" rx="2.5" fill="currentColor"/><path d="M3 7.5a5 5 0 0 0 10 0M8 12.5v2" stroke="currentColor" stroke-width="1.4" fill="none" stroke-linecap="round"/></svg>
+              <span>Start listening</span>
+            </button>
+          </div>
+          <div class="row">
+            <label class="switch"><input type="checkbox" id="voice" checked> Speak translations</label>
+            <button class="btn ghost small" id="new-session" type="button">New session</button>
+          </div>
+        </div>
+        <p class="note" id="turn-hint">Hands-free: put the laptop between you and just talk. Samvaad works out who is speaking from the language.</p>
+        <div class="live-strip" id="live-strip" hidden aria-live="polite"><span class="meta">Hearing</span><p class="txt"></p></div>
+        <div class="panes">
+          <div class="pane" data-side="a">
+            <div class="pane-head">
+              <input class="label" id="label-a" type="text" value="Doctor" aria-label="Name of person A">
+              <select id="lang-a" aria-label="Language of person A"></select>
+            </div>
+            <div class="msgs" id="msgs-a" aria-live="polite"><p class="empty-state">What this person says appears here, and what the other person says appears here translated.</p></div>
+            <div class="pane-foot">
+              <button class="btn talk" data-side="a" type="button" hidden>Hold to talk</button>
+              <form class="typed" data-side="a"><input type="text" id="typed-a" autocomplete="off" placeholder="Or type a line…" aria-label="Type a line for person A"><button class="btn" type="submit">Send</button></form>
+            </div>
+          </div>
+          <div class="pane" data-side="b">
+            <div class="pane-head">
+              <input class="label" id="label-b" type="text" value="Patient" aria-label="Name of person B">
+              <select id="lang-b" aria-label="Language of person B"></select>
+            </div>
+            <div class="msgs" id="msgs-b" aria-live="polite"><p class="empty-state">Beacon listens for this person's name in what the other person says.</p></div>
+            <div class="pane-foot">
+              <button class="btn talk" data-side="b" type="button" hidden>Hold to talk</button>
+              <form class="typed" data-side="b"><input type="text" id="typed-b" autocomplete="off" placeholder="Or type a line…" aria-label="Type a line for person B"><button class="btn" type="submit">Send</button></form>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Live captions -->
+      <section class="panel" id="panel-cap" role="tabpanel" aria-labelledby="tab-cap" hidden>
+        <div class="bar">
+          <div class="row">
+            <label for="cap-source">Listen to</label>
+            <select id="cap-source">
+              <option value="mic">Microphone (the room)</option>
+              <option value="display">Another app or tab (Teams, Zoom, YouTube)</option>
+            </select>
+            <label for="cap-src">Spoken in</label>
+            <select id="cap-src"></select>
+            <label for="cap-tgt">Captions in</label>
+            <select id="cap-tgt"></select>
+          </div>
+          <div class="row">
+            <button class="btn primary" id="cap-start" type="button"><span>Start captions</span></button>
+            <button class="btn ghost" id="cap-pop" type="button" title="Keeps the captions on top of other windows">Pop out</button>
+          </div>
+        </div>
+        <div id="capbar-home">
+          <div class="capbar" id="capbar" aria-live="polite">
+            <p class="src" id="cap-line-src"></p>
+            <p class="dst" id="cap-line-dst"></p>
+            <p class="hint" id="cap-hint">Press Start captions. For another app, pick its window and tick "Share audio".</p>
+          </div>
+        </div>
+        <label class="switch"><input type="checkbox" id="cap-voice"> Read captions aloud</label>
+        <ol class="log" id="cap-log"></ol>
+      </section>
+
+      <!-- Recall -->
+      <section class="panel" id="panel-recall" role="tabpanel" aria-labelledby="tab-recall" hidden>
+        <div class="recall">
+          <div class="ask">
+            <label for="q">Ask about this session</label>
+            <form class="ask-row" id="ask-form">
+              <input type="text" id="q" autocomplete="off" placeholder="What dose did the doctor prescribe?">
+              <button class="btn primary" type="submit">Ask</button>
+            </form>
+            <div class="row">
+              <label for="ans-lang">Answer in</label>
+              <select id="ans-lang"></select>
+              <button class="btn small" id="summarize" type="button">Summarise session</button>
+            </div>
+            <div class="answer" id="answer" aria-live="polite"><p class="note">Ask anything about what was said. Answers cite the moments they come from and are checked for numbers that were never said.</p></div>
+            <div class="row">
+              <a class="btn small" href="/api/session/export?fmt=md" download>Export notes (.md)</a>
+              <a class="btn small" href="/api/session/export?fmt=json" download>Export data (.json)</a>
+              <button class="btn small" id="save" type="button">Save to this PC</button>
+            </div>
+            <p class="note" id="save-note"></p>
+          </div>
+          <div class="ask">
+            <label>Session transcript</label>
+            <ol class="transcript" id="transcript"><li><span></span><span class="note">Nothing said yet.</span></li></ol>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <aside class="rail">
+      <section class="card">
+        <div class="card-head"><h2>Beacon</h2><span class="mono" id="beacon-conn">Arduino UNO Q · not connected</span></div>
+        <div class="device" id="device">
+          <div class="ring" aria-hidden="true"></div>
+          <div class="device-text"><b id="beacon-status">Listening for “Priya”</b><span id="beacon-sub">Vibrates and flashes for person B</span></div>
+        </div>
+        <div>
+          <label for="beacon-name">Name to listen for</label>
+          <input type="text" id="beacon-name" value="Priya" autocomplete="off">
+        </div>
+        <div class="row"><button class="btn small" id="beacon-test" type="button">Send a test alert</button></div>
+        <ol class="events" id="events"><li class="none">No alerts yet</li></ol>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Speed</h2><span class="mono">last utterance, ms</span></div>
+        <div class="stats">
+          <div class="stat"><b id="s-asr">–</b><span>Speech</span></div>
+          <div class="stat"><b id="s-mt">–</b><span>Translate</span></div>
+          <div class="stat"><b id="s-e2e">–</b><span>End to end</span></div>
+        </div>
+        <p class="note" id="s-median">Session medians appear after a few utterances.</p>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>Pinned terms</h2><span class="mono">one per line</span></div>
+        <textarea id="glossary" rows="4" placeholder="ASHA = आशा कार्यकर्ता&#10;GST = जीएसटी"></textarea>
+        <div class="row"><button class="btn small" id="glossary-save" type="button">Save terms</button><span class="note" id="glossary-note"></span></div>
+      </section>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span>Samvaad runs on this PC. Audio is never saved or sent anywhere.</span>
+    <span class="mono" id="version"></span>
+  </footer>
+</div>
+<script src="/app.js"></script>
+</body>
+</html>
