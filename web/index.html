@@ -1,0 +1,1084 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Samvaad Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Devanagari:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* Layout: an interpreter console. Pipeline strip on top, the working surface (conversation / captions / recall) on the left, the Beacon device and an honest "what runs where" card on the right rail. */
+:root {
+  --bg: #F4F3EE;
+  --surface: #FFFFFC;
+  --surface-2: #EBE8DF;
+  --ink: #122039;
+  --muted: #56617A;
+  --line: #D8D3C6;
+  --accent: #B3530E;
+  --accent-fill: #E07A2E;
+  --accent-soft: rgba(224, 122, 46, 0.14);
+  --on-accent: #1B1206;
+  --npu: #2A64A8;
+  --npu-soft: rgba(42, 100, 168, 0.12);
+  --good: #1B7446;
+  --good-soft: rgba(27, 116, 70, 0.12);
+  --warn: #8A5B00;
+  --warn-soft: rgba(176, 120, 0, 0.14);
+  --bad: #B3261E;
+  --bad-soft: rgba(179, 38, 30, 0.11);
+  --frame-bg: #0B1426;
+  --frame-ink: #F4F6FA;
+  --frame-muted: #A9B6CB;
+  --frame-bar: rgba(6, 11, 24, 0.84);
+  --shadow: 0 1px 2px rgba(18, 32, 57, 0.06), 0 8px 24px rgba(18, 32, 57, 0.06);
+  --f-display: 'Space Grotesk', 'IBM Plex Sans', Arial, sans-serif;
+  --f-body: 'IBM Plex Sans', 'IBM Plex Sans Devanagari', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --f-mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0D1729; --surface: #15233B; --surface-2: #1C2D4A; --ink: #EDF0F5; --muted: #9DAAC0; --line: #2A3C5C;
+    --accent: #F2984A; --accent-soft: rgba(240, 145, 63, 0.16); --npu: #86B5EC; --npu-soft: rgba(134, 181, 236, 0.14);
+    --good: #66D19A; --good-soft: rgba(102, 209, 154, 0.13); --warn: #E8B955; --warn-soft: rgba(232, 185, 85, 0.14);
+    --bad: #F2877E; --bad-soft: rgba(242, 135, 126, 0.14); --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0D1729; --surface: #15233B; --surface-2: #1C2D4A; --ink: #EDF0F5; --muted: #9DAAC0; --line: #2A3C5C;
+  --accent: #F2984A; --accent-soft: rgba(240, 145, 63, 0.16); --npu: #86B5EC; --npu-soft: rgba(134, 181, 236, 0.14);
+  --good: #66D19A; --good-soft: rgba(102, 209, 154, 0.13); --warn: #E8B955; --warn-soft: rgba(232, 185, 85, 0.14);
+  --bad: #F2877E; --bad-soft: rgba(242, 135, 126, 0.14); --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--f-body); font-size: 15px; line-height: 1.5; }
+.app { max-width: 1260px; margin: 0 auto; padding-inline: 20px; padding-block: 20px 48px; display: flex; flex-direction: column; gap: 18px; }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; }
+p { margin: 0; }
+button, input, select { font: inherit; color: inherit; }
+button:focus-visible, input:focus-visible, select:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--npu); outline-offset: 2px; }
+
+/* Header */
+.top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px; }
+.brand { display: flex; align-items: baseline; flex-wrap: wrap; gap: 10px 12px; }
+.brand h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; }
+.brand .deva { font-family: 'IBM Plex Sans Devanagari', var(--f-body); color: var(--accent); font-size: 20px; font-weight: 600; }
+.tag { font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--accent); border: 1px solid currentColor; border-radius: 999px; padding: 2px 10px; }
+.top-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.lede { color: var(--muted); max-width: 78ch; font-size: 15px; }
+.lede b { color: var(--ink); font-weight: 600; }
+
+/* Buttons and controls */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 10px; padding: 9px 14px; font-weight: 600; font-size: 14px; cursor: pointer; transition: background 0.15s, border-color 0.15s; white-space: nowrap; }
+.btn:hover { border-color: var(--muted); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn.primary { background: var(--accent-fill); border-color: var(--accent-fill); color: var(--on-accent); }
+.btn.primary:hover { filter: brightness(1.05); }
+.btn.ghost { background: transparent; }
+.btn svg { width: 16px; height: 16px; flex: none; }
+.switch { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; cursor: pointer; user-select: none; }
+.switch input { appearance: none; width: 38px; height: 22px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); position: relative; cursor: pointer; margin: 0; transition: background 0.15s; }
+.switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--muted); transition: transform 0.15s, background 0.15s; }
+.switch input:checked { background: var(--accent-soft); border-color: var(--accent-fill); }
+.switch input:checked::after { transform: translateX(16px); background: var(--accent-fill); }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.seg button { border: 0; background: transparent; padding: 7px 12px; font-size: 14px; font-weight: 500; cursor: pointer; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--surface-2); color: var(--ink); font-weight: 600; }
+select { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 6px 8px; font-size: 14px; max-width: 100%; }
+input[type="text"] { border: 1px solid var(--line); background: var(--surface); border-radius: 10px; padding: 9px 12px; font-size: 15px; width: 100%; min-width: 0; }
+input[type="text"]:disabled { background: var(--surface-2); color: var(--muted); }
+label { font-size: 13px; font-weight: 600; color: var(--muted); }
+
+/* Pipeline strip */
+.pipeline { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; }
+.pipe-label { font-family: var(--f-mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.stages { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.stage { display: inline-flex; align-items: baseline; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 13px; font-weight: 600; transition: background 0.12s, border-color 0.12s, color 0.12s; }
+.stage small { font-family: var(--f-mono); font-size: 11px; font-weight: 500; color: var(--muted); }
+.stage.npu small { color: var(--npu); }
+.stage.on { background: var(--accent-soft); border-color: var(--accent-fill); color: var(--ink); }
+.stage.on small { color: var(--accent); }
+.pipe-note { font-size: 12px; color: var(--muted); margin-left: auto; }
+
+/* Layout */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 18px; align-items: start; }
+.main { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); min-width: 0; }
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); padding: 8px 12px 0; overflow-x: auto; }
+.tab { border: 0; background: transparent; padding: 10px 12px 12px; font-weight: 600; font-size: 15px; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+.tab[aria-selected="true"] { color: var(--ink); border-bottom-color: var(--accent-fill); }
+.panel { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+.bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; }
+.hint { color: var(--muted); font-size: 14px; max-width: 70ch; }
+.hint b { color: var(--ink); }
+
+/* Conversation */
+.panes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.pane { border: 1px solid var(--line); border-radius: 14px; background: var(--bg); display: flex; flex-direction: column; min-width: 0; }
+.pane-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 12px; border-bottom: 1px solid var(--line); }
+.who { display: flex; flex-direction: column; }
+.who b { font-family: var(--f-display); font-size: 17px; }
+.who span { font-size: 12px; color: var(--muted); }
+.msgs { display: flex; flex-direction: column; gap: 10px; padding: 12px; min-height: 260px; max-height: 460px; overflow-y: auto; }
+.msg { border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; max-width: 94%; min-width: 0; }
+.msg .meta { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); }
+.msg.own { align-self: flex-end; background: var(--surface-2); }
+.msg.own .txt { font-size: 15px; }
+.msg.in { align-self: flex-start; background: var(--surface); border: 1px solid var(--line); }
+.msg.in .txt { font-size: 19px; line-height: 1.45; font-weight: 500; }
+.msg .orig { font-size: 13px; color: var(--muted); }
+.msg.flash { animation: flash 1.2s ease-out; }
+@keyframes flash { from { box-shadow: 0 0 0 3px var(--accent-fill); } to { box-shadow: 0 0 0 0 transparent; } }
+.msg.pending .txt { color: var(--muted); font-size: 14px; font-weight: 500; }
+.dots { display: inline-flex; gap: 4px; align-items: center; }
+.dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); animation: blink 1s infinite; }
+.dots i:nth-child(2) { animation-delay: 0.15s; }
+.dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes blink { 0%, 100% { opacity: 0.25; } 50% { opacity: 1; } }
+.guard { display: flex; align-items: flex-start; gap: 6px; font-size: 12.5px; line-height: 1.4; border-radius: 8px; padding: 5px 8px; }
+.guard svg { width: 15px; height: 15px; flex: none; margin-top: 1px; }
+.guard.pass { color: var(--good); background: var(--good-soft); }
+.guard.confirm { color: var(--warn); background: var(--warn-soft); }
+.guard.hold { color: var(--bad); background: var(--bad-soft); }
+.guard.none { color: var(--muted); background: var(--surface-2); }
+.msg.held .txt { text-decoration: line-through; text-decoration-color: var(--bad); text-decoration-thickness: 2px; }
+.composer { display: flex; gap: 8px; padding: 10px 12px 0; }
+.phrases { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px 12px; }
+.chip { border: 1px dashed var(--line); background: transparent; border-radius: 999px; padding: 5px 10px; font-size: 13px; cursor: pointer; color: var(--ink); text-align: left; max-width: 100%; }
+.chip:hover { border-style: solid; border-color: var(--muted); }
+.note { font-size: 13px; color: var(--muted); }
+.note.warn { color: var(--warn); }
+
+/* Captions */
+.frame { position: relative; width: 100%; max-width: 100%; aspect-ratio: 16 / 9; border-radius: 14px; overflow: hidden; background:
+  radial-gradient(120% 90% at 78% 18%, rgba(224, 122, 46, 0.28), transparent 55%),
+  radial-gradient(90% 80% at 12% 90%, rgba(42, 100, 168, 0.35), transparent 60%),
+  linear-gradient(160deg, #13223D, var(--frame-bg)); color: var(--frame-ink); }
+.frame-top { position: absolute; top: 12px; left: 14px; right: 14px; display: flex; justify-content: space-between; align-items: center; gap: 10px; font-family: var(--f-mono); font-size: 12px; color: var(--frame-muted); }
+.onair { display: inline-flex; align-items: center; gap: 6px; }
+.onair::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--frame-muted); }
+.frame.playing .onair::before { background: #F0913F; }
+.bars { display: inline-flex; align-items: flex-end; gap: 3px; height: 18px; }
+.bars i { width: 4px; height: 4px; background: var(--frame-muted); border-radius: 2px; }
+.frame.playing .bars i { animation: level 0.9s ease-in-out infinite; background: var(--frame-ink); }
+.frame.playing .bars i:nth-child(2) { animation-delay: 0.1s; }
+.frame.playing .bars i:nth-child(3) { animation-delay: 0.25s; }
+.frame.playing .bars i:nth-child(4) { animation-delay: 0.05s; }
+.frame.playing .bars i:nth-child(5) { animation-delay: 0.3s; }
+@keyframes level { 0%, 100% { height: 4px; } 50% { height: 18px; } }
+.lower-third { position: absolute; left: 14px; top: 40%; display: flex; flex-direction: column; gap: 2px; }
+.lower-third b { font-family: var(--f-display); font-size: clamp(18px, 3.4vw, 30px); letter-spacing: -0.01em; }
+.lower-third span { font-size: 13px; color: var(--frame-muted); }
+.capbar { position: absolute; left: 0; right: 0; bottom: 0; background: var(--frame-bar); padding: 10px 16px 12px; display: flex; flex-direction: column; gap: 3px; min-height: 30%; justify-content: flex-end; }
+.capbar .src { font-size: clamp(12px, 1.8vw, 15px); color: var(--frame-muted); min-height: 1.4em; }
+.capbar .src .partial { opacity: 0.5; font-style: italic; }
+.capbar .dst { font-size: clamp(15px, 2.6vw, 22px); font-weight: 600; line-height: 1.35; min-height: 1.35em; }
+.cap-log { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.cap-log li { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 4px 12px; padding: 10px 0; border-top: 1px solid var(--line); }
+.cap-log .time { font-family: var(--f-mono); font-size: 12px; color: var(--muted); padding-top: 3px; }
+.cap-log .line { font-size: 16px; font-weight: 500; }
+.cap-log .orig { font-size: 13px; color: var(--muted); }
+.cap-log .body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+
+/* Recall */
+.recall { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+.ask { display: flex; flex-direction: column; gap: 10px; }
+.ask-row { display: flex; gap: 8px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.answer { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--bg); display: flex; flex-direction: column; gap: 10px; min-height: 120px; }
+.answer .a-text { font-size: 18px; line-height: 1.45; font-weight: 500; }
+.answer .a-empty { color: var(--muted); font-size: 14px; }
+.cites { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 13px; color: var(--muted); }
+.cite { font-family: var(--f-mono); font-size: 12px; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 2px 8px; cursor: pointer; color: var(--ink); }
+.moment { border-left: 3px solid var(--line); padding-left: 10px; display: flex; flex-direction: column; gap: 2px; }
+.moment .meta { font-family: var(--f-mono); font-size: 12px; color: var(--muted); }
+.transcript-wrap { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.transcript { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; max-height: 520px; overflow-y: auto; border: 1px solid var(--line); border-radius: 12px; }
+.transcript li { display: grid; grid-template-columns: 50px minmax(0, 1fr); gap: 2px 10px; padding: 10px 12px; border-top: 1px solid var(--line); transition: background 0.3s; }
+.transcript li:first-child { border-top: 0; }
+.transcript li.hl { background: var(--accent-soft); }
+.transcript .time { font-family: var(--f-mono); font-size: 12px; color: var(--muted); padding-top: 2px; }
+.transcript .spk { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.transcript .t { font-size: 14.5px; }
+.transcript .tr { font-size: 13px; color: var(--muted); }
+.transcript .body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+/* Rail */
+.rail { display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow); }
+.card h2 { font-size: 18px; }
+.card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.mono { font-family: var(--f-mono); font-size: 11.5px; color: var(--muted); }
+.device { --ring-c: var(--line); display: flex; align-items: center; gap: 16px; padding: 14px; border-radius: 14px; background: var(--bg); border: 1px solid var(--line); }
+.ring { width: 76px; height: 76px; border-radius: 50%; border: 9px solid var(--ring-c); flex: none; position: relative; transition: border-color 0.2s; }
+.ring::after { content: ""; position: absolute; inset: 14px; border-radius: 50%; background: var(--surface-2); }
+.device.name { --ring-c: var(--accent-fill); }
+.device.alarm { --ring-c: var(--bad); }
+.device.door { --ring-c: var(--npu); }
+.device.active .ring { animation: glow 0.6s ease-out 4; }
+.device.buzz { animation: buzz 0.09s linear 10; }
+@keyframes glow { from { box-shadow: 0 0 0 0 color-mix(in srgb, var(--ring-c) 55%, transparent); } to { box-shadow: 0 0 0 16px transparent; } }
+@keyframes buzz { 0% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } 100% { transform: translateX(0); } }
+.device-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.device-text b { font-size: 15px; }
+.device-text span { font-size: 13px; color: var(--muted); }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; }
+.events { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 13px; }
+.events li { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px; }
+.events .mono { padding-top: 1px; }
+.events .none { display: block; color: var(--muted); }
+.real dl { margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.real dt { font-weight: 600; font-size: 14px; }
+.real dd { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
+.foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 14px; }
+
+@media (max-width: 1000px) { .layout { grid-template-columns: minmax(0, 1fr); } .rail { display: grid; grid-template-columns: 1fr 1fr; } }
+@media (max-width: 760px) { .panes, .recall, .rail { grid-template-columns: minmax(0, 1fr); } .pipe-note { margin-left: 0; } .panel { padding: 14px; } .app { padding-inline: 16px; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+
+<div class="app">
+  <header class="top">
+    <div class="brand">
+      <h1>Samvaad</h1>
+      <span class="deva" lang="hi">संवाद</span>
+      <span class="tag">Live preview</span>
+    </div>
+    <div class="top-actions">
+      <label class="switch" for="voice-toggle"><input type="checkbox" id="voice-toggle" checked> Voice</label>
+      <button id="play-demo" class="btn primary" type="button">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg>
+        <span>Play the demo</span>
+      </button>
+    </div>
+  </header>
+
+  <p class="lede">An interpreter for two people who share no language. In the Windows app, <b>every model runs on the Snapdragon NPU with no internet</b>. This browser preview replays a recorded session and runs the numbers-and-names guard live. Source code: <a href="https://github.com/mayankmajoka2000-tech/samvaad">github.com/mayankmajoka2000-tech/samvaad</a>.</p>
+
+  <section class="pipeline" aria-label="On-device pipeline">
+    <span class="pipe-label">On-device pipeline</span>
+    <ol class="stages">
+      <li class="stage" data-stage="capture">Capture <small>CPU</small></li>
+      <li class="stage" data-stage="gate">Gate <small>CPU</small></li>
+      <li class="stage npu" data-stage="recognise">Recognise <small>NPU</small></li>
+      <li class="stage npu" data-stage="translate">Translate <small>NPU</small></li>
+      <li class="stage" data-stage="guard">Guard <small>CPU</small></li>
+      <li class="stage npu" data-stage="speak">Speak <small>NPU</small></li>
+    </ol>
+    <span class="pipe-note">Lights show where each step runs in the app</span>
+  </section>
+
+  <div class="layout">
+    <main class="main">
+      <div class="tabs" role="tablist" aria-label="Modes">
+        <button class="tab" role="tab" id="tab-conv" aria-controls="panel-conv" aria-selected="true" type="button">Conversation</button>
+        <button class="tab" role="tab" id="tab-cap" aria-controls="panel-cap" aria-selected="false" type="button">Live captions</button>
+        <button class="tab" role="tab" id="tab-recall" aria-controls="panel-recall" aria-selected="false" type="button">Recall</button>
+      </div>
+
+      <section class="panel" id="panel-conv" role="tabpanel" aria-labelledby="tab-conv">
+        <div class="bar">
+          <p class="hint">Sample session: a doctor and a patient in a clinic. Press <b>Play the demo</b> to replay it with voice, tap a phrase, or type your own line.</p>
+          <button id="tamper" class="btn ghost" type="button">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5 15 14H1z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6v3.5M8 11.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+            Tamper with a translation
+          </button>
+        </div>
+        <div class="panes">
+          <div class="pane" data-side="doctor">
+            <div class="pane-head">
+              <div class="who"><b>Doctor</b><span id="sub-doctor">Speaks English</span></div>
+              <select id="lang-doctor" aria-label="Doctor's language"></select>
+            </div>
+            <div class="msgs" id="msgs-doctor" aria-live="polite"></div>
+            <form class="composer" data-side="doctor">
+              <input type="text" id="in-doctor" autocomplete="off" aria-label="Doctor's line">
+              <button class="btn" type="submit">Send</button>
+            </form>
+            <div class="phrases" id="ph-doctor"></div>
+          </div>
+          <div class="pane" data-side="patient">
+            <div class="pane-head">
+              <div class="who"><b>Patient</b><span id="sub-patient">Speaks Hindi · uses Beacon</span></div>
+              <select id="lang-patient" aria-label="Patient's language"></select>
+            </div>
+            <div class="msgs" id="msgs-patient" aria-live="polite"></div>
+            <form class="composer" data-side="patient">
+              <input type="text" id="in-patient" autocomplete="off" aria-label="Patient's line">
+              <button class="btn" type="submit">Send</button>
+            </form>
+            <div class="phrases" id="ph-patient"></div>
+          </div>
+        </div>
+        <p class="note" id="free-note"></p>
+      </section>
+
+      <section class="panel" id="panel-cap" role="tabpanel" aria-labelledby="tab-cap" hidden>
+        <div class="bar">
+          <p class="hint">Captions for any app's audio, translated into the reader's language. Words settle once two passes agree; the faint ones are still being decided.</p>
+          <div class="row">
+            <div class="seg" role="group" aria-label="Caption language">
+              <button type="button" data-cap-lang="en" aria-pressed="true">English</button>
+              <button type="button" data-cap-lang="hi" aria-pressed="false" lang="hi">हिन्दी</button>
+            </div>
+            <button id="cap-play" class="btn" type="button">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg>
+              <span>Play the clip</span>
+            </button>
+          </div>
+        </div>
+        <div class="frame" id="frame">
+          <div class="frame-top"><span class="onair">Sample clip · Spanish evening news</span><span class="bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></div>
+          <div class="lower-third"><b>Noticias de la noche</b><span>Madrid</span></div>
+          <div class="capbar" aria-live="polite">
+            <p class="src" id="cap-src" lang="es"></p>
+            <p class="dst" id="cap-dst"></p>
+          </div>
+        </div>
+        <ol class="cap-log" id="cap-log"></ol>
+      </section>
+
+      <section class="panel" id="panel-recall" role="tabpanel" aria-labelledby="tab-recall" hidden>
+        <div class="recall">
+          <div class="ask">
+            <label for="q">Ask about this session</label>
+            <form class="ask-row" id="ask-form">
+              <input type="text" id="q" autocomplete="off" placeholder="What dose did the doctor prescribe?">
+              <button id="ask-btn" class="btn primary" type="submit">Ask</button>
+            </form>
+            <div class="row" style="align-items:center">
+              <span class="note">Answer in</span>
+              <div class="seg" role="group" aria-label="Answer language">
+                <button type="button" data-ans-lang="en" aria-pressed="true">English</button>
+                <button type="button" data-ans-lang="hi" aria-pressed="false" lang="hi">हिन्दी</button>
+              </div>
+            </div>
+            <div class="chips" id="q-chips"></div>
+            <div class="answer" id="answer" aria-live="polite"><p class="a-empty">Pick a question above or type your own. Answers cite the moments they come from.</p></div>
+          </div>
+          <div class="transcript-wrap">
+            <label>Session transcript</label>
+            <ol class="transcript" id="transcript"></ol>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <aside class="rail">
+      <section class="card beacon">
+        <div class="card-head"><h2>Beacon</h2><span class="mono">Arduino UNO Q · simulated</span></div>
+        <div class="device" id="device">
+          <div class="ring" aria-hidden="true"></div>
+          <div class="device-text"><b id="beacon-status">Listening for “Priya”</b><span id="beacon-sub">Vibrates and flashes for the patient</span></div>
+        </div>
+        <div class="field">
+          <label for="beacon-name">Name to listen for</label>
+          <input type="text" id="beacon-name" value="Priya" autocomplete="off">
+        </div>
+        <div class="row">
+          <button id="sim-alarm" class="btn ghost" type="button">Smoke alarm</button>
+          <button id="sim-door" class="btn ghost" type="button">Doorbell</button>
+        </div>
+        <ol class="events" id="events"><li class="none">No alerts yet</li></ol>
+      </section>
+
+      <section class="card real">
+        <h2>What runs where</h2>
+        <dl>
+          <div><dt>Numbers-and-names guard</dt><dd>Runs live in this page on every translation. Try “Tamper with a translation”.</dd></div>
+          <div><dt>Sample session and news clip</dt><dd>Recorded lines, translated in advance, so the demo works for anyone.</dd></div>
+          <div><dt>Lines you type</dt><dd>Off in this web preview. The Windows app translates them with Qwen3 on the NPU, offline.</dd></div>
+          <div><dt>Voice</dt><dd>Your browser's speech engine. The app uses MeloTTS and Kokoro on the NPU.</dd></div>
+          <div><dt>Microphone</dt><dd>Browsers block it inside this page. The app listens with Whisper-Large-V3-Turbo on the NPU.</dd></div>
+        </dl>
+      </section>
+    </aside>
+  </div>
+
+  <footer class="foot">
+    <span>Samvaad · Snapdragon AI Lab Build &amp; Present Challenge · <a href="https://github.com/mayankmajoka2000-tech/samvaad" style="color:var(--npu)">Source code on GitHub</a></span>
+    <span class="mono">Web preview 0.1</span>
+  </footer>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var $ = function (s) { return document.querySelector(s); };
+  var $$ = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
+
+  var LANGS = {
+    en: { name: "English", native: "English", sp: "en-IN" },
+    hi: { name: "Hindi", native: "हिन्दी", sp: "hi-IN" },
+    es: { name: "Spanish", native: "Español", sp: "es-ES" },
+    ta: { name: "Tamil", native: "தமிழ்", sp: "ta-IN" },
+    bn: { name: "Bengali", native: "বাংলা", sp: "bn-IN" },
+    mr: { name: "Marathi", native: "मराठी", sp: "mr-IN" },
+    fr: { name: "French", native: "Français", sp: "fr-FR" },
+    ar: { name: "Arabic", native: "العربية", sp: "ar-SA" },
+    sw: { name: "Swahili", native: "Kiswahili", sp: "sw-KE" },
+    ja: { name: "Japanese", native: "日本語", sp: "ja-JP" },
+    zh: { name: "Chinese", native: "中文", sp: "zh-CN" }
+  };
+  var WHO = { doctor: "Doctor", patient: "Patient", news: "News clip" };
+
+  var SCRIPT = [
+    { id: "m1", who: "doctor", lang: "en", t: 2, text: "Good morning, Priya. What brings you in today?", tr: { hi: "सुप्रभात, प्रिया। आज आप किस वजह से आई हैं?" }, names: [["Priya", "प्रिया"]] },
+    { id: "m2", who: "patient", lang: "hi", t: 9, text: "मुझे तीन दिन से बुखार और खांसी है।", tr: { en: "I have had a fever and a cough for three days." }, names: [] },
+    { id: "m3", who: "doctor", lang: "en", t: 17, text: "Your temperature is 101 degrees. Take one 500 mg tablet twice a day, after meals, for 5 days.", tr: { hi: "आपका तापमान 101 डिग्री है। खाने के बाद दिन में दो बार 500 mg की एक गोली लें, 5 दिन तक।" }, names: [] },
+    { id: "m4", who: "patient", lang: "hi", t: 31, text: "क्या मैं इसे दूध के साथ ले सकती हूँ?", tr: { en: "Can I take it with milk?" }, names: [] },
+    { id: "m5", who: "doctor", lang: "en", t: 36, text: "Yes, milk is fine. Come back on Friday, 2 October, if the fever continues.", tr: { hi: "हाँ, दूध ठीक है। अगर बुखार बना रहे तो शुक्रवार, 2 अक्टूबर को फिर आइए।" }, names: [["Friday", "शुक्रवार"], ["October", "अक्टूबर"]] },
+    { id: "m6", who: "patient", lang: "hi", t: 48, text: "ठीक है, धन्यवाद डॉक्टर।", tr: { en: "Okay, thank you, doctor." }, names: [] }
+  ];
+
+  var CAPTIONS = [
+    { id: "c1", t: 65, text: "Buenas noches. El metro de Madrid abrirá dos nuevas estaciones el 15 de octubre.",
+      tr: { en: "Good evening. The Madrid metro will open two new stations on 15 October.", hi: "शुभ संध्या। मैड्रिड मेट्रो 15 अक्टूबर को दो नए स्टेशन खोलेगी।" },
+      names: { en: [["Madrid", "Madrid"], ["octubre", "October"]], hi: [["Madrid", "मैड्रिड"], ["octubre", "अक्टूबर"]] } },
+    { id: "c2", t: 74, text: "El proyecto costó 240 millones de euros y dará servicio a 50.000 viajeros al día.",
+      tr: { en: "The project cost 240 million euros and will serve 50,000 passengers a day.", hi: "इस परियोजना पर 240 मिलियन यूरो खर्च हुए और यह हर दिन 50,000 यात्रियों को सेवा देगी।" },
+      names: { en: [], hi: [] } },
+    { id: "c3", t: 84, text: "Mañana, lluvia en el norte y hasta 24 grados en Sevilla.",
+      tr: { en: "Tomorrow, rain in the north and up to 24 degrees in Seville.", hi: "कल उत्तर में बारिश और सेविल में 24 डिग्री तक तापमान।" },
+      names: { en: [["Sevilla", "Seville"]], hi: [["Sevilla", "सेविल"]] } }
+  ];
+
+  var PRESETS = [
+    { q: { en: "What dose did the doctor prescribe?", hi: "डॉक्टर ने कितनी खुराक बताई?" }, cite: ["m3"],
+      a: { en: "One 500 mg tablet twice a day, after meals, for 5 days.", hi: "खाने के बाद दिन में दो बार 500 mg की एक गोली, 5 दिन तक।" } },
+    { q: { en: "When should Priya come back?", hi: "प्रिया को दोबारा कब आना है?" }, cite: ["m5"],
+      a: { en: "On Friday, 2 October, if the fever continues.", hi: "अगर बुखार बना रहे तो शुक्रवार, 2 अक्टूबर को।" } },
+    { q: { en: "When do the new metro stations open?", hi: "नए मेट्रो स्टेशन कब खुलेंगे?" }, cite: ["c1"],
+      a: { en: "On 15 October. Madrid is opening two new stations.", hi: "15 अक्टूबर को। मैड्रिड दो नए स्टेशन खोल रहा है।" } },
+    { q: { en: "What is tomorrow's weather?", hi: "कल का मौसम कैसा रहेगा?" }, cite: ["c3"],
+      a: { en: "Rain in the north and up to 24 degrees in Seville.", hi: "उत्तर में बारिश और सेविल में 24 डिग्री तक।" } }
+  ];
+
+  var KNOWN_NAMES = { priya: ["प्रिया"] };
+
+  var state = {
+    messages: [], captions: [], voice: true, t0: null, uid: 0,
+    demoToken: 0, demoRunning: false, capToken: 0, capRunning: false,
+    capLang: "en", ansLang: "en", sample: null, sampleState: "pending", samplePromise: null,
+    langs: { doctor: "en", patient: "hi" }
+  };
+
+  /* ---------- helpers ---------- */
+  function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+  function wait(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+  function now() { return performance.now(); }
+  function sessionSeconds() { if (state.t0 == null) state.t0 = now(); return (now() - state.t0) / 1000; }
+  function fmt(sec) { sec = Math.max(0, Math.round(sec)); var m = Math.floor(sec / 60), s = sec % 60; return (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s; }
+  function other(side) { return side === "doctor" ? "patient" : "doctor"; }
+  function wallTime() { var d = new Date(); return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }); }
+  var ICONS = {
+    pass: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m4.8 8.2 2.1 2.1 4.3-4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    hold: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.5v4.2M8 11v.4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>',
+    confirm: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8 15 14H1z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M8 6.2v3.3M8 11.6v.3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>',
+    none: '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M5 8h6" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
+  };
+
+  /* ---------- the numbers-and-names guard (runs for real) ---------- */
+  var DIGIT_BASES = [0x0966, 0x09E6, 0x0BE6, 0x0660, 0x06F0, 0xFF10, 0x0AE6, 0x0A66, 0x0CE6, 0x0C66, 0x0D66];
+  function normDigits(s) {
+    var out = "";
+    for (var i = 0; i < s.length; i++) {
+      var c = s.charCodeAt(i), mapped = null;
+      for (var j = 0; j < DIGIT_BASES.length; j++) { if (c >= DIGIT_BASES[j] && c <= DIGIT_BASES[j] + 9) { mapped = String(c - DIGIT_BASES[j]); break; } }
+      out += mapped != null ? mapped : s[i];
+    }
+    return out;
+  }
+  var WORDS = {
+    en: { zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, once: 1, twice: 2, thrice: 3 },
+    hi: { "शून्य": 0, "एक": 1, "दो": 2, "तीन": 3, "चार": 4, "पाँच": 5, "पांच": 5, "छह": 6, "छः": 6, "सात": 7, "आठ": 8, "नौ": 9, "दस": 10, "ग्यारह": 11, "बारह": 12 },
+    es: { cero: 0, dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10 }
+  };
+  function normNum(s) {
+    if (/^\d{1,3}([.,]\d{3})+$/.test(s)) return String(parseInt(s.replace(/[.,]/g, ""), 10));
+    var v = parseFloat(s.replace(",", "."));
+    return isNaN(v) ? s : String(v);
+  }
+  function facts(text, lang) {
+    var t = normDigits(text || "");
+    var digits = [], words = [];
+    var re = /\d+(?:[.,]\d+)*/g, m;
+    while ((m = re.exec(t))) digits.push(normNum(m[0]));
+    var map = WORDS[lang];
+    if (map) {
+      t.toLowerCase().split(/[\s.,!?;:।॥"'“”‘’()\[\]\-–—]+/).forEach(function (tok) {
+        if (tok && Object.prototype.hasOwnProperty.call(map, tok)) words.push(String(map[tok]));
+      });
+    }
+    return { digits: digits, words: words, all: digits.concat(words) };
+  }
+  function minus(a, b) { var rest = b.slice(), out = []; a.forEach(function (x) { var i = rest.indexOf(x); if (i >= 0) rest.splice(i, 1); else out.push(x); }); return out; }
+  function uniq(a) { return a.filter(function (x, i) { return a.indexOf(x) === i; }); }
+  function guard(src, srcLang, tgt, tgtLang, names) {
+    var a = facts(src, srcLang), b = facts(tgt, tgtLang);
+    var missing = minus(a.all, b.all), extra = minus(b.all, a.all);
+    var digitProblem = a.digits.some(function (d) { return b.all.indexOf(d) < 0; }) || b.digits.some(function (d) { return a.all.indexOf(d) < 0; });
+    var lostNames = (names || []).filter(function (p) { return p[1] && tgt.toLowerCase().indexOf(String(p[1]).toLowerCase()) < 0; });
+    var status = "pass";
+    if (digitProblem || lostNames.length) status = "hold";
+    else if (missing.length || extra.length) status = "confirm";
+    else if (!a.all.length && !(names || []).length) status = "none";
+    return { status: status, nums: uniq(a.all), missing: uniq(missing), extra: uniq(extra), names: names || [], lostNames: lostNames };
+  }
+  function guardNode(g) {
+    var n = el("div", "guard " + g.status);
+    var msg = "";
+    if (g.status === "pass") {
+      var parts = [];
+      if (g.nums.length) parts.push("Numbers match: " + g.nums.join(" · "));
+      if (g.names.length) parts.push("Names kept: " + g.names.map(function (p) { return p[0] === p[1] ? p[0] : p[0] + " → " + p[1]; }).join(", "));
+      msg = parts.join(". ");
+    } else if (g.status === "hold") {
+      var bits = [];
+      if (g.missing.length) bits.push(g.missing.join(", ") + (g.missing.length > 1 ? " are" : " is") + " in the original but missing here");
+      if (g.extra.length) bits.push(g.extra.join(", ") + (g.extra.length > 1 ? " appear" : " appears") + " instead");
+      if (g.lostNames.length) bits.push("name " + g.lostNames.map(function (p) { return p[0]; }).join(", ") + " was lost");
+      msg = "Held for review: " + (bits.join("; ") || "numbers differ") + ". Not spoken aloud; ask the speaker to repeat.";
+    } else if (g.status === "confirm") {
+      msg = "Please confirm: number words differ (" + (g.missing.concat(g.extra).join(", ")) + ").";
+    } else {
+      msg = "No numbers or names to check";
+    }
+    n.innerHTML = ICONS[g.status];
+    n.appendChild(el("span", null, msg));
+    return n;
+  }
+
+  /* ---------- pipeline lights ---------- */
+  var stageEls = {};
+  $$(".stage").forEach(function (s) { stageEls[s.dataset.stage] = s; });
+  function setStage(name) { Object.keys(stageEls).forEach(function (k) { stageEls[k].classList.toggle("on", k === name); }); }
+  async function runStages(names, total, alive) {
+    var step = total / names.length;
+    for (var i = 0; i < names.length; i++) { if (alive && !alive()) return; setStage(names[i]); await wait(step); }
+  }
+
+  /* ---------- speech ---------- */
+  var synth = window.speechSynthesis || null;
+  function pickVoice(lang) {
+    if (!synth) return null;
+    var list = synth.getVoices() || [], code = LANGS[lang] ? LANGS[lang].sp : lang;
+    var exact = list.filter(function (v) { return v.lang && v.lang.toLowerCase() === code.toLowerCase(); });
+    if (exact.length) return exact[0];
+    var pref = list.filter(function (v) { return v.lang && v.lang.toLowerCase().indexOf(lang) === 0; });
+    return pref[0] || null;
+  }
+  function speak(text, lang) {
+    return new Promise(function (resolve) {
+      if (!state.voice || !synth || typeof SpeechSynthesisUtterance === "undefined") { setTimeout(resolve, 900); return; }
+      var done = false, finish = function () { if (!done) { done = true; resolve(); } };
+      try {
+        var u = new SpeechSynthesisUtterance(text);
+        u.lang = LANGS[lang] ? LANGS[lang].sp : lang;
+        var v = pickVoice(lang); if (v) u.voice = v;
+        u.rate = 1; u.onend = finish; u.onerror = finish;
+        synth.speak(u);
+        setTimeout(finish, Math.min(14000, 1500 + text.length * 90));
+      } catch (e) { setTimeout(finish, 900); }
+    });
+  }
+  function stopSpeech() { try { if (synth) synth.cancel(); } catch (e) {} }
+
+  /* ---------- Beacon ---------- */
+  var device = $("#device"), beaconStatus = $("#beacon-status"), beaconSub = $("#beacon-sub"), eventsEl = $("#events");
+  var beaconTimer = null;
+  function beaconName() { return ($("#beacon-name").value || "").trim(); }
+  function idleBeacon() {
+    device.className = "device";
+    var n = beaconName();
+    beaconStatus.textContent = n ? "Listening for “" + n + "”" : "Listening for alarms";
+    beaconSub.textContent = "Vibrates and flashes for the patient";
+  }
+  function fireBeacon(kind, title, sub) {
+    clearTimeout(beaconTimer);
+    device.className = "device";
+    void device.offsetWidth;
+    device.className = "device active buzz " + kind;
+    beaconStatus.textContent = title;
+    beaconSub.textContent = sub;
+    if (eventsEl.querySelector(".none")) eventsEl.innerHTML = "";
+    var li = el("li");
+    li.appendChild(el("span", "mono", wallTime().slice(0, 8)));
+    li.appendChild(el("span", null, title + " · " + sub));
+    eventsEl.insertBefore(li, eventsEl.firstChild);
+    while (eventsEl.children.length > 6) eventsEl.removeChild(eventsEl.lastChild);
+    beaconTimer = setTimeout(idleBeacon, 3200);
+  }
+  function escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+  function checkBeacon(texts, where) {
+    var n = beaconName(); if (!n) return false;
+    var candidates = [n].concat(KNOWN_NAMES[n.toLowerCase()] || []);
+    var hit = texts.some(function (t) {
+      return candidates.some(function (c) {
+        if (/^[\x00-\x7F]+$/.test(c)) return new RegExp("(^|[^A-Za-z])" + escapeRe(c) + "([^A-Za-z]|$)", "i").test(t || "");
+        return (t || "").indexOf(c) >= 0;
+      });
+    });
+    if (hit) fireBeacon("name", "Name heard: " + n, where);
+    return hit;
+  }
+  $("#beacon-name").addEventListener("input", idleBeacon);
+  $("#sim-alarm").addEventListener("click", function () { fireBeacon("alarm", "Smoke alarm", "Sound model heard an alarm pattern"); });
+  $("#sim-door").addEventListener("click", function () { fireBeacon("door", "Doorbell", "Sound model heard the doorbell"); });
+
+  /* ---------- conversation rendering ---------- */
+  function langOptions(select, value) {
+    select.innerHTML = "";
+    Object.keys(LANGS).forEach(function (k) {
+      var o = el("option", null, k === "en" ? "English" : LANGS[k].native + " · " + LANGS[k].name);
+      o.value = k; if (k === value) o.selected = true; select.appendChild(o);
+    });
+  }
+  function scriptMode() { return state.langs.doctor === "en" && state.langs.patient === "hi"; }
+  function updateSubs() {
+    $("#sub-doctor").textContent = "Speaks " + LANGS[state.langs.doctor].name;
+    $("#sub-patient").textContent = "Speaks " + LANGS[state.langs.patient].name + " · uses Beacon";
+  }
+  function renderPhrases() {
+    ["doctor", "patient"].forEach(function (side) {
+      var box = $("#ph-" + side); box.innerHTML = "";
+      if (!scriptMode()) { box.appendChild(el("span", "note", "Recorded phrases are in English and Hindi.")); return; }
+      SCRIPT.filter(function (s) { return s.who === side; }).forEach(function (s) {
+        var b = el("button", "chip", s.text); b.type = "button"; b.lang = s.lang;
+        b.addEventListener("click", function () { if (!state.demoRunning) sendLine(side, s.text, s); });
+        box.appendChild(b);
+      });
+    });
+  }
+  function clearPanes() { $("#msgs-doctor").innerHTML = ""; $("#msgs-patient").innerHTML = ""; }
+  function scrollDown(box) { box.scrollTop = box.scrollHeight; }
+
+  function ownNode(msg) {
+    var n = el("div", "msg own");
+    n.appendChild(el("span", "meta", "You said · " + fmt(msg.t)));
+    var p = el("p", "txt", msg.text); p.lang = msg.srcLang; p.dir = "auto"; n.appendChild(p);
+    return n;
+  }
+  function inNode(msg) {
+    var n = el("div", "msg in" + (msg.guard.status === "hold" ? " held" : ""));
+    n.dataset.id = msg.id;
+    n.appendChild(el("span", "meta", WHO[msg.who] + " said · from " + LANGS[msg.srcLang].name + " · " + fmt(msg.t)));
+    var p = el("p", "txt", msg.tr); p.lang = msg.tgtLang; p.dir = "auto"; n.appendChild(p);
+    var o = el("p", "orig", msg.text); o.lang = msg.srcLang; o.dir = "auto"; n.appendChild(o);
+    n.appendChild(guardNode(msg.guard));
+    return n;
+  }
+  function renderMessage(msg, stage) {
+    var speakerBox = $("#msgs-" + msg.who), listenerBox = $("#msgs-" + other(msg.who));
+    if (stage !== "in") { msg.elOwn = ownNode(msg); speakerBox.appendChild(msg.elOwn); scrollDown(speakerBox); }
+    if (stage !== "own") { msg.elIn = inNode(msg); listenerBox.appendChild(msg.elIn); scrollDown(listenerBox); }
+  }
+  function pendingBubble(side, label) {
+    var n = el("div", "msg " + (label === "Listening" ? "own" : "in") + " pending");
+    var p = el("p", "txt"); p.appendChild(document.createTextNode(label + " ")); var d = el("span", "dots"); d.innerHTML = "<i></i><i></i><i></i>"; p.appendChild(d);
+    n.appendChild(p); var box = $("#msgs-" + side); box.appendChild(n); scrollDown(box); return n;
+  }
+  function makeMessage(who, text, tr, names, t, scriptRef) {
+    var src = state.langs[who], tgt = state.langs[other(who)];
+    var msg = { id: scriptRef ? scriptRef.id : "u" + (++state.uid), who: who, srcLang: src, tgtLang: tgt, text: text, tr: tr, names: names || [], t: t };
+    msg.guard = guard(text, src, tr, tgt, msg.names);
+    return msg;
+  }
+
+  /* ---------- one spoken line, end to end ---------- */
+  async function playLine(side, s, alive) {
+    var listen = pendingBubble(side, "Listening");
+    await runStages(["capture", "gate", "recognise"], Math.min(2200, 700 + s.text.length * 18), alive);
+    listen.remove();
+    if (!alive()) return;
+    var msg = makeMessage(side, s.text, s.tr[state.langs[other(side)]], s.names, sessionSeconds(), s);
+    renderMessage(msg, "own");
+    await runStages(["translate", "guard"], 700, alive);
+    if (!alive()) return;
+    state.messages.push(msg);
+    renderMessage(msg, "in");
+    msg.elIn.classList.add("flash");
+    renderTranscript();
+    if (side === "doctor") checkBeacon([msg.text, msg.tr], "Doctor, " + fmt(msg.t));
+    if (msg.guard.status !== "hold") { setStage("speak"); await speak(msg.tr, msg.tgtLang); }
+    else await wait(1200);
+    setStage(null);
+  }
+
+  var playBtn = $("#play-demo");
+  function setPlayLabel(t) { playBtn.querySelector("span").textContent = t; }
+  async function playDemo() {
+    if (state.demoRunning) { stopDemo(); return; }
+    var token = ++state.demoToken; state.demoRunning = true;
+    var alive = function () { return token === state.demoToken; };
+    setPlayLabel("Stop");
+    selectTab("conv");
+    state.langs.doctor = "en"; state.langs.patient = "hi";
+    $("#lang-doctor").value = "en"; $("#lang-patient").value = "hi";
+    updateSubs(); renderPhrases(); updateFreeUI();
+    state.messages = []; clearPanes(); state.t0 = now();
+    renderTranscript();
+    for (var i = 0; i < SCRIPT.length; i++) {
+      if (!alive()) return;
+      await playLine(SCRIPT[i].who, SCRIPT[i], alive);
+      if (!alive()) return;
+      await wait(450);
+    }
+    if (alive()) { state.demoRunning = false; setPlayLabel("Play again"); setStage(null); }
+  }
+  function stopDemo() {
+    state.demoToken++; state.demoRunning = false; stopSpeech(); setStage(null); setPlayLabel("Play the demo");
+    $$(".msg.pending").forEach(function (n) { n.remove(); });
+  }
+  playBtn.addEventListener("click", playDemo);
+
+  /* ---------- sending a line (phrase or typed) ---------- */
+  var freeNote = $("#free-note");
+  function note(text, warn) { freeNote.textContent = text || ""; freeNote.className = "note" + (warn ? " warn" : ""); }
+
+  async function sendLine(side, text, scriptRef) {
+    text = (text || "").trim(); if (!text) return;
+    note("");
+    var src = state.langs[side], tgt = state.langs[other(side)];
+    if (!scriptRef && scriptMode()) scriptRef = SCRIPT.filter(function (s) { return s.who === side && s.text === text; })[0];
+    if (scriptRef && scriptRef.tr[tgt]) {
+      var tok = ++state.demoToken; state.demoRunning = true; setPlayLabel("Stop");
+      await playLine(side, scriptRef, function () { return tok === state.demoToken; });
+      if (tok === state.demoToken) { state.demoRunning = false; setPlayLabel("Play the demo"); }
+      return;
+    }
+    var t = sessionSeconds();
+    var msgShell = { id: "u" + (state.uid + 1), who: side, srcLang: src, text: text, t: t };
+    var ownEl = ownNode(msgShell); $("#msgs-" + side).appendChild(ownEl); scrollDown($("#msgs-" + side));
+    if (src === tgt) {
+      var same = makeMessage(side, text, text, [], t);
+      same.elOwn = ownEl; state.messages.push(same); renderMessage(same, "in"); renderTranscript();
+      if (side === "doctor") checkBeacon([text], "Doctor, " + fmt(t));
+      return;
+    }
+    if (state.sampleState === "pending" && state.samplePromise) await state.samplePromise;
+    if (!state.sample || state.sampleState === "off") {
+      ownEl.remove();
+      note("Typing your own lines works in the Windows app, where translation runs on the NPU. In this preview, tap a recorded phrase below.", true);
+      return;
+    }
+    var pend = pendingBubble(other(side), "Translating");
+    setStage("translate");
+    try {
+      var prompt = "You are the translation stage of Samvaad, an interpreter app for face-to-face conversations.\n" +
+        "Translate the text from " + LANGS[src].name + " to " + LANGS[tgt].name + " as natural spoken " + LANGS[tgt].name + ".\n" +
+        "Rules: keep every number exactly as written, using digits wherever the source uses digits (never convert units or counting systems); keep units such as mg and degrees; keep person and place names, transliterated into the target script when it differs.\n" +
+        'Reply with only JSON like {"translation": "...", "names": [{"source": "Priya", "target": "प्रिया"}]}. Use an empty names list when there are none.\n\n' +
+        "Text: " + JSON.stringify(text);
+      var r = await state.sample.json(prompt, { modelTier: "quick" });
+      pend.remove();
+      if (!r || typeof r.translation !== "string" || !r.translation.trim()) throw { code: "invalid_json" };
+      var names = Array.isArray(r.names) ? r.names.filter(function (p) { return p && typeof p.source === "string" && typeof p.target === "string"; }).map(function (p) { return [p.source, p.target]; }) : [];
+      setStage("guard"); await wait(300);
+      var msg = makeMessage(side, text, r.translation.trim(), names, t);
+      msg.elOwn = ownEl;
+      state.messages.push(msg);
+      renderMessage(msg, "in");
+      msg.elIn.classList.add("flash");
+      renderTranscript();
+      if (side === "doctor") checkBeacon([msg.text, msg.tr], "Doctor, " + fmt(msg.t));
+      if (msg.guard.status !== "hold") { setStage("speak"); await speak(msg.tr, msg.tgtLang); }
+    } catch (e) {
+      pend.remove(); ownEl.remove();
+      handleSampleError(e);
+    } finally { setStage(null); }
+  }
+  function handleSampleError(e) {
+    var code = e && e.code;
+    if (["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"].indexOf(code) >= 0) {
+      state.sampleState = "off"; updateFreeUI();
+      note("Claude isn't available to this page for you, so typed lines are off. The recorded phrases still work.", true);
+    } else if (code === "rate_limited") note("Too many requests right now. Wait a minute, then send again.", true);
+    else if (code === "session_expired") note("Your Claude session expired. Sign in again, then send the line.", true);
+    else if (code === "refused") note("That line couldn't be translated. Try rewording it.", true);
+    else if (code === "cancelled") note("");
+    else note("The translation didn't come through. Send the line again.", true);
+  }
+
+  $$(".composer").forEach(function (f) {
+    f.addEventListener("submit", function (ev) {
+      ev.preventDefault();
+      if (state.demoRunning) return;
+      var side = f.dataset.side, input = $("#in-" + side), v = input.value;
+      input.value = ""; sendLine(side, v);
+    });
+  });
+
+  function updateFreeUI() {
+    ["doctor", "patient"].forEach(function (side) {
+      var input = $("#in-" + side), btn = input.form.querySelector("button");
+      var off = state.sampleState === "off";
+      input.disabled = off; btn.disabled = off;
+      input.placeholder = off ? "Tap a recorded phrase below" : "Type a line in " + LANGS[state.langs[side]].name + "…";
+    });
+    if (state.sampleState === "off" && !freeNote.textContent) note("Typed lines work in the Windows app. In this preview, tap a recorded phrase.");
+  }
+
+  ["doctor", "patient"].forEach(function (side) {
+    var s = $("#lang-" + side);
+    langOptions(s, state.langs[side]);
+    s.addEventListener("change", function () {
+      if (state.demoRunning) stopDemo();
+      state.langs[side] = s.value; updateSubs(); renderPhrases(); updateFreeUI();
+    });
+  });
+
+  /* ---------- tamper test ---------- */
+  $("#tamper").addEventListener("click", function () {
+    var target = null, fallback = null;
+    for (var i = state.messages.length - 1; i >= 0; i--) {
+      var ds = facts(state.messages[i].tr, state.messages[i].tgtLang).digits;
+      if (!ds.length) continue;
+      if (!fallback) fallback = state.messages[i];
+      if (ds.some(function (d) { return parseFloat(d) >= 100; })) { target = state.messages[i]; break; }
+    }
+    target = target || fallback;
+    if (!target) { note("Send or replay a line with a number in it first, then tamper with it."); return; }
+    var re = /\d+(?:[.,]\d+)*/g, m, best = null, tr = normDigits(target.tr);
+    while ((m = re.exec(tr))) { var v = parseFloat(normNum(m[0])); if (!best || v > best.v) best = { v: v, s: m[0], i: m.index }; }
+    var nv = best.v >= 10 && best.v % 10 === 0 ? best.v / 10 : best.v * 10;
+    target.tr = tr.slice(0, best.i) + String(nv) + tr.slice(best.i + best.s.length);
+    target.guard = guard(target.text, target.srcLang, target.tr, target.tgtLang, target.names);
+    var fresh = inNode(target); target.elIn.replaceWith(fresh); target.elIn = fresh;
+    fresh.classList.add("flash"); fresh.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    stopSpeech(); setStage("guard"); setTimeout(function () { setStage(null); }, 900);
+    note("Changed " + best.s + " to " + nv + " in the translation. The guard caught it and held the line.");
+    renderTranscript();
+  });
+
+  /* ---------- live captions ---------- */
+  var capSrc = $("#cap-src"), capDst = $("#cap-dst"), capLog = $("#cap-log"), frame = $("#frame"), capBtn = $("#cap-play");
+  function capGuard(c) { return guard(c.text, "es", c.tr[state.capLang], state.capLang, c.names[state.capLang]); }
+  function capLogItem(c) {
+    var li = el("li"); li.appendChild(el("span", "time", fmt(c.time)));
+    var body = el("div", "body");
+    var line = el("p", "line", c.tr[state.capLang]); line.lang = state.capLang; body.appendChild(line);
+    var o = el("p", "orig", c.text); o.lang = "es"; body.appendChild(o);
+    body.appendChild(guardNode(capGuard(c)));
+    li.appendChild(body); return li;
+  }
+  function renderCapLog() {
+    capLog.innerHTML = "";
+    state.captions.slice().reverse().forEach(function (c) { capLog.appendChild(capLogItem(c)); });
+    var last = state.captions[state.captions.length - 1];
+    if (last && !state.capRunning) { capSrc.textContent = last.text; capDst.textContent = last.tr[state.capLang]; capDst.lang = state.capLang; }
+  }
+  async function playCaptions() {
+    if (state.capRunning) { state.capToken++; state.capRunning = false; frame.classList.remove("playing"); stopSpeech(); setStage(null); capBtn.querySelector("span").textContent = "Play the clip"; renderCapLog(); return; }
+    var token = ++state.capToken, alive = function () { return token === state.capToken; };
+    state.capRunning = true; capBtn.querySelector("span").textContent = "Stop";
+    frame.classList.add("playing");
+    if (state.t0 == null) state.t0 = now();
+    state.captions = []; renderCapLog(); renderTranscript();
+    for (var i = 0; i < CAPTIONS.length; i++) {
+      var c = CAPTIONS[i], words = c.text.split(" ");
+      capDst.textContent = "";
+      setStage("capture");
+      for (var w = 1; w <= words.length; w++) {
+        if (!alive()) return;
+        var settled = words.slice(0, Math.max(0, w - 3)).join(" "), partial = words.slice(Math.max(0, w - 3), w).join(" ");
+        capSrc.innerHTML = "";
+        capSrc.appendChild(document.createTextNode(settled + (settled ? " " : "")));
+        capSrc.appendChild(el("span", "partial", partial));
+        setStage(w % 3 === 0 ? "gate" : "recognise");
+        await wait(230);
+      }
+      capSrc.textContent = c.text;
+      await runStages(["translate", "guard"], 600, alive);
+      if (!alive()) return;
+      var item = { id: c.id, time: sessionSeconds(), text: c.text, tr: c.tr, names: c.names };
+      state.captions.push(item);
+      capDst.textContent = c.tr[state.capLang]; capDst.lang = state.capLang;
+      capLog.insertBefore(capLogItem(item), capLog.firstChild);
+      renderTranscript();
+      checkBeacon([c.text, c.tr.en, c.tr.hi], "News clip, " + fmt(item.time));
+      setStage("speak");
+      await speak(c.tr[state.capLang], state.capLang);
+      setStage(null);
+      await wait(500);
+    }
+    if (alive()) { state.capRunning = false; frame.classList.remove("playing"); capBtn.querySelector("span").textContent = "Replay the clip"; }
+  }
+  capBtn.addEventListener("click", playCaptions);
+  $$("[data-cap-lang]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      state.capLang = b.dataset.capLang;
+      $$("[data-cap-lang]").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+      renderCapLog();
+      var last = state.captions[state.captions.length - 1];
+      if (last && state.capRunning) { capDst.textContent = last.tr[state.capLang]; capDst.lang = state.capLang; }
+    });
+  });
+
+  /* ---------- Recall ---------- */
+  var transcriptEl = $("#transcript"), answerEl = $("#answer");
+  function items() {
+    var out = [];
+    state.messages.forEach(function (m) { out.push({ id: m.id, t: m.t, spk: WHO[m.who] + " · " + LANGS[m.srcLang].name, text: m.text, lang: m.srcLang, trs: (function () { var o = {}; o[m.tgtLang] = m.tr; return o; })() }); });
+    state.captions.forEach(function (c) { out.push({ id: c.id, t: c.time, spk: "News clip · Spanish", text: c.text, lang: "es", trs: c.tr }); });
+    return out.sort(function (a, b) { return a.t - b.t; });
+  }
+  function renderTranscript() {
+    transcriptEl.innerHTML = "";
+    var list = items();
+    if (!list.length) { var li = el("li"); li.appendChild(el("span", "time", "")); li.appendChild(el("span", "note", "Nothing said yet. Play the demo or the clip.")); transcriptEl.appendChild(li); return; }
+    list.forEach(function (it) {
+      var li = el("li"); li.id = "tr-" + it.id;
+      li.appendChild(el("span", "time", fmt(it.t)));
+      var body = el("div", "body");
+      body.appendChild(el("span", "spk", it.spk));
+      var t = el("p", "t", it.text); t.lang = it.lang; t.dir = "auto"; body.appendChild(t);
+      var alt = it.trs[state.ansLang] || it.trs.en || it.trs[Object.keys(it.trs)[0]];
+      if (alt && alt !== it.text) { var tr = el("p", "tr", alt); tr.dir = "auto"; body.appendChild(tr); }
+      li.appendChild(body); transcriptEl.appendChild(li);
+    });
+  }
+  function highlight(id) {
+    var li = document.getElementById("tr-" + id); if (!li) return;
+    li.classList.add("hl"); li.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    setTimeout(function () { li.classList.remove("hl"); }, 2200);
+  }
+  function renderChips() {
+    var box = $("#q-chips"); box.innerHTML = "";
+    PRESETS.forEach(function (p, i) {
+      var b = el("button", "chip", p.q[state.ansLang]); b.type = "button"; b.lang = state.ansLang;
+      b.addEventListener("click", function () { $("#q").value = p.q[state.ansLang]; ask(p.q[state.ansLang], i); });
+      box.appendChild(b);
+    });
+  }
+  function citeRow(ids, list) {
+    var row = el("div", "cites"); row.appendChild(el("span", null, "From"));
+    ids.forEach(function (id) {
+      var it = list.filter(function (x) { return x.id === id; })[0]; if (!it) return;
+      var b = el("button", "cite", fmt(it.t) + " " + it.spk.split(" · ")[0]); b.type = "button";
+      b.addEventListener("click", function () { highlight(id); });
+      row.appendChild(b);
+    });
+    return row;
+  }
+  function answerGuard(answer, lang, ids, list) {
+    var src = [];
+    ids.forEach(function (id) {
+      var it = list.filter(function (x) { return x.id === id; })[0]; if (!it) return;
+      src = src.concat(facts(it.text, it.lang).all);
+      Object.keys(it.trs).forEach(function (k) { src = src.concat(facts(it.trs[k], k).all); });
+    });
+    var f = facts(answer, lang);
+    var bad = f.digits.filter(function (d) { return src.indexOf(d) < 0; });
+    var g = { status: bad.length ? "hold" : (f.all.length ? "pass" : "none"), nums: uniq(f.all), missing: [], extra: uniq(bad), names: [], lostNames: [] };
+    var n = el("div", "guard " + g.status); n.innerHTML = ICONS[g.status];
+    n.appendChild(el("span", null, g.status === "pass" ? "Numbers match the cited moments: " + g.nums.join(" · ") : g.status === "hold" ? bad.join(", ") + " is not in the cited moments. Check before relying on it." : "No numbers to check"));
+    return n;
+  }
+  function showAnswer(text, lang, ids, list) {
+    answerEl.innerHTML = "";
+    var p = el("p", "a-text", text); p.lang = lang; p.dir = "auto"; answerEl.appendChild(p);
+    if (ids && ids.length) { answerEl.appendChild(citeRow(ids, list)); answerEl.appendChild(answerGuard(text, lang, ids, list)); ids.forEach(highlight); }
+  }
+  var STOP = "the a an is are was were what when where who whom how did do does to of in on for and or it this that with be will should about say said i you me my your please tell".split(" ");
+  function tokens(s) { return normDigits(s.toLowerCase()).split(/[^\p{L}\p{N}]+/u).filter(function (t) { return t && t.length > 1 && STOP.indexOf(t) < 0; }); }
+  function localSearch(q, list) {
+    var qt = tokens(q);
+    var scored = list.map(function (it) {
+      var hay = tokens([it.text].concat(Object.keys(it.trs).map(function (k) { return it.trs[k]; })).join(" "));
+      var s = 0;
+      qt.forEach(function (t) { if (hay.some(function (h) { return h === t || (t.length >= 5 && h.indexOf(t.slice(0, 5)) === 0); })) s++; });
+      return { it: it, s: s };
+    }).filter(function (x) { return x.s > 0; }).sort(function (a, b) { return b.s - a.s; }).slice(0, 2);
+    answerEl.innerHTML = "";
+    if (!scored.length) { answerEl.appendChild(el("p", "a-empty", "Nothing in this session matches. Try one of the suggested questions.")); return; }
+    answerEl.appendChild(el("p", "note", "Closest moments in this session:"));
+    scored.forEach(function (x) {
+      var m = el("div", "moment");
+      m.appendChild(el("span", "meta", fmt(x.it.t) + " · " + x.it.spk));
+      var alt = x.it.trs[state.ansLang] || x.it.text;
+      var p = el("p", null, alt); p.dir = "auto"; m.appendChild(p);
+      answerEl.appendChild(m);
+      highlight(x.it.id);
+    });
+    if (state.sampleState === "off") answerEl.appendChild(el("p", "note", "In this preview, Recall matches your question against the transcript. The Windows app writes full answers on the NPU."));
+  }
+  var askCtl = null;
+  async function ask(q, presetIndex) {
+    q = (q || "").trim(); if (!q) return;
+    var list = items();
+    var preset = presetIndex != null ? PRESETS[presetIndex] : PRESETS.filter(function (p) { return p.q.en.toLowerCase() === q.toLowerCase() || p.q.hi === q; })[0];
+    if (preset && preset.cite.every(function (id) { return list.some(function (x) { return x.id === id; }); })) {
+      showAnswer(preset.a[state.ansLang], state.ansLang, preset.cite, list); return;
+    }
+    if (state.sampleState === "pending" && state.samplePromise) await state.samplePromise;
+    if (!state.sample || state.sampleState === "off") { localSearch(q, list); return; }
+    answerEl.innerHTML = ""; answerEl.appendChild(el("p", "a-empty", "Thinking…"));
+    if (askCtl) askCtl.abort();
+    askCtl = new AbortController();
+    var lines = list.map(function (it) {
+      return "[" + it.id + "] " + fmt(it.t) + " " + it.spk + ": " + it.text + Object.keys(it.trs).map(function (k) { return " | " + LANGS[k].name + ": " + it.trs[k]; }).join("");
+    }).join("\n").slice(0, 12000);
+    var prompt = "You answer questions about a transcript captured by Samvaad, an interpreter app. Use only the transcript.\n" +
+      "Answer in " + LANGS[state.ansLang].name + " in one or two short sentences. Keep numbers exactly as written in the transcript. If the transcript does not contain the answer, say so plainly.\n" +
+      'Reply with only JSON like {"answer": "...", "cite": ["m3"]}, where cite lists the ids of the lines you used.\n\nTranscript:\n' + lines + "\n\nQuestion: " + q;
+    try {
+      var r = await state.sample.json(prompt, { modelTier: "quick", signal: askCtl.signal });
+      if (!r || typeof r.answer !== "string") throw { code: "invalid_json" };
+      var ids = Array.isArray(r.cite) ? r.cite.map(String).filter(function (id) { return list.some(function (x) { return x.id === id; }); }) : [];
+      showAnswer(r.answer, state.ansLang, ids, list);
+    } catch (e) {
+      if (e && e.code === "cancelled") return;
+      if (e && ["not_granted", "sampling_disabled", "not_declared", "capability_disabled", "capability_removed"].indexOf(e.code) >= 0) { state.sampleState = "off"; updateFreeUI(); }
+      localSearch(q, list);
+    }
+  }
+  $("#ask-form").addEventListener("submit", function (ev) { ev.preventDefault(); ask($("#q").value); });
+  $$("[data-ans-lang]").forEach(function (b) {
+    b.addEventListener("click", function () {
+      state.ansLang = b.dataset.ansLang;
+      $$("[data-ans-lang]").forEach(function (x) { x.setAttribute("aria-pressed", String(x === b)); });
+      $("#q").placeholder = PRESETS[0].q[state.ansLang];
+      renderChips(); renderTranscript();
+    });
+  });
+
+  /* ---------- tabs ---------- */
+  var TABS = { conv: ["#tab-conv", "#panel-conv"], cap: ["#tab-cap", "#panel-cap"], recall: ["#tab-recall", "#panel-recall"] };
+  function selectTab(key) {
+    Object.keys(TABS).forEach(function (k) {
+      var on = k === key; $(TABS[k][0]).setAttribute("aria-selected", String(on)); $(TABS[k][1]).hidden = !on;
+    });
+    try { history.replaceState(null, "", "#" + key); } catch (e) {}
+  }
+  Object.keys(TABS).forEach(function (k) { $(TABS[k][0]).addEventListener("click", function () { selectTab(k); }); });
+  $(".tabs").addEventListener("keydown", function (ev) {
+    if (ev.key !== "ArrowRight" && ev.key !== "ArrowLeft") return;
+    var keys = Object.keys(TABS), cur = keys.filter(function (k) { return $(TABS[k][0]).getAttribute("aria-selected") === "true"; })[0];
+    var i = keys.indexOf(cur) + (ev.key === "ArrowRight" ? 1 : -1); i = (i + keys.length) % keys.length;
+    selectTab(keys[i]); $(TABS[keys[i]][0]).focus();
+  });
+
+  $("#voice-toggle").addEventListener("change", function (ev) { state.voice = ev.target.checked; if (!state.voice) stopSpeech(); });
+
+  /* ---------- initial state: the recorded session, already on screen ---------- */
+  function seed() {
+    state.messages = SCRIPT.map(function (s) { return makeMessage(s.who, s.text, s.tr[state.langs[other(s.who)]], s.names, s.t, s); });
+    state.messages.forEach(function (m) { renderMessage(m); });
+    state.captions = CAPTIONS.map(function (c) { return { id: c.id, time: c.t, text: c.text, tr: c.tr, names: c.names }; });
+    renderCapLog(); renderTranscript(); renderChips(); renderPhrases(); updateSubs(); idleBeacon();
+  }
+  seed();
+  var hash = (location.hash || "").replace("#", "");
+  if (TABS[hash]) selectTab(hash);
+
+  /* ---------- Claude as a stand-in for the on-device translator (optional) ---------- */
+  if (window.claude && typeof window.claude.use === "function") {
+    state.samplePromise = window.claude.use("sample").then(function (s) {
+      state.sample = s; state.sampleState = s ? "on" : "off"; updateFreeUI();
+    }).catch(function () { state.sampleState = "off"; updateFreeUI(); });
+  } else { state.sampleState = "off"; }
+  updateFreeUI();
+})();
+</script>
+
+</body></html>
